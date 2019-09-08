@@ -40,7 +40,7 @@ class learned_quant():
             for i in range(len(self.W)):
                 # compute Bi with v
                 self.B[i] = self.W[i].data / self.v[i]
-                self.B[i] = torch.round((self.B[i]-1)/2)*2-1
+                self.B[i] = torch.round((self.B[i]-1)/2)*2+1
                 self.B[i] = torch.clamp(self.B[i], -(pow(2,self.b[i])-1), pow(2,self.b[i])-1)
 
                 # compute v[i] with B[i]
