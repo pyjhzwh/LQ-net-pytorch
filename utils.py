@@ -27,7 +27,10 @@ def save_state(model, best_acc, epoch, args,optimizer, isbest):
             'optimizer': optimizer.state_dict(),
             'isbest': isbest,
             }
-    filename = str(args.arch)+'.'+suffix
+    if args.lq is None:
+        filename = str(args.arch)+suffix
+    else:
+        filename = 'lq.'+str(args.arch)+suffix
     torch.save(state,dirpath+filename)
     if isbest:
         shutil.copyfile(dirpath+filename, dirpath+'best.'+filename)
@@ -100,4 +103,16 @@ def adjust_learning_rate(optimizer, epoch, args):
     lr = args.lr * (0.1 ** (epoch // args.lr_epochs))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+def to_cuda_optimizer(optimizer):
+    for state in optimizer.state.values():
+        for k, v in state.items():
+            if isinstance(v, torch.Tensor):
+                state[k] = v.cuda()
+
+def weightsdistribute(model):
+    for key, value in model.named_parameters():
+        if '.0.weight' in key:
+            unique, count = torch.unique(value, sorted=True, return_counts= True)
+            print(unique,":",count)
 

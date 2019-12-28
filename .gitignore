@@ -4,3 +4,4 @@ data/**
 saved_models/**
 **/*.back
 **/*.swp
+**/*.swo

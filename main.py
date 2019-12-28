@@ -24,6 +24,26 @@ from utils import *
 import modelarchs
 import lqnet
 
+def gen_target_weights(model, arch):
+    target_weights = []
+    if arch == 'resnet18' or arch == 'resnet20':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
+                    target_weights.append(m.weight)
+
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                target_weights.append(m.weight)
+        target_weights = target_weights[1:-1]
+    else:
+        raise Exception ('{} not supported'.format(arch))
+    print('\nQuantizing:')
+    for item in target_weights:
+        print(item.shape)
+    print('\n')
+    return target_weights
 
 def test(val_loader, model, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -39,14 +59,13 @@ def test(val_loader, model, epoch, args):
     model.eval()
 
 
-    confidence_record = torch.tensor([],dtype=torch.float32).cuda()#np.array([])
-    pred_record = torch.tensor([], dtype=torch.int).cuda()#np.array([]).astype(int)
-    target_record = torch.tensor([], dtype=torch.int).cuda()#np.array([]).astype(int)
-
     with torch.no_grad():
         end = time.time()
         # apply quantized value to testing stage
+        if args.lq:
+            LQ.apply(test=True)
         #if args.lq:
+            #LQ.storeW()
             #LQ.apply_quantval()
 
         for i, (images, target) in enumerate(val_loader):
@@ -54,19 +73,10 @@ def test(val_loader, model, epoch, args):
             #    images = images.cuda(args.gpu, non_blocking=True)
             #target = target.cuda(args.gpu, non_blocking=True)
             images, target = Variable(images.cuda()), Variable(target.cuda())
-            target_record = torch.cat((target_record, target.type(torch.int).reshape(-1)), 0)
 
             # compute output
             output = model(images)
             loss = criterion(output, target)
-            #print("output size",output.size())
-            #print("target size",target.size())
-
-            # confidence and pred of the output
-            _, pred = output.topk(1, 1, True, True)
-            pred_record = torch.cat((pred_record, pred.type(torch.int).reshape(-1)), 0)
-            confidence = F.softmax(output.data, dim=1).max(1)[0]
-            confidence_record = torch.cat((confidence_record, confidence.type(torch.float).reshape(-1)), 0)
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -82,8 +92,8 @@ def test(val_loader, model, epoch, args):
                 progress.display(i)
 
         #restore the floating point value to W
-        #if args.lq:
-            #LQ.restoreW()
+        if args.lq:
+            LQ.restoreW()
 
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
@@ -110,14 +120,13 @@ def train(train_loader,optimizer, model, epoch, args):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        #if args.gpu is not None:
-            #images = images.cuda(args.gpu, non_blocking=True)
-        #target = target.cuda(args.gpu, non_blocking=True)
         images, target = Variable(images.cuda()), Variable(target.cuda())
 
         # apply quantized value to W
         #if args.lq:
             #LQ.apply_quantval()
+        if args.lq:
+            LQ.apply()
 
         # compute output
         output = model(images)
@@ -128,9 +137,6 @@ def train(train_loader,optimizer, model, epoch, args):
         losses.update(loss.item(), images.size(0))
         top1.update(acc1[0], images.size(0))
         top5.update(acc5[0], images.size(0))
-
-        if args.lq:
-            LQ.update()
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -160,8 +166,9 @@ def train(train_loader,optimizer, model, epoch, args):
     if args.lq:
         #if epoch % 10 == 9:
         LQ.print_info()
-        if epoch == args.epochs -1:
-            LQ.apply_quantval()
+        #if epoch == args.epochs -1:
+        #    print('store quantized weights')
+        #    LQ.storequntW()
 
     return
 
@@ -211,7 +218,7 @@ if __name__=='__main__':
     parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
     parser.add_argument('--arch', action='store', default='resnet20',
-                        help='the CIFAR10 network structure: resnet20 | resnet18')
+                        help='the CIFAR10 network structure: resnet20 | resnet18 | all_cnn_c | all_cnn_net')
     parser.add_argument('--dataset', action='store', default='cifar10',
             help='pretrained model: cifar10 | imagenet')
     parser.add_argument('--lq', default=False, 
@@ -305,18 +312,21 @@ if __name__=='__main__':
     elif args.arch == 'all_cnn_c':
         model = modelarchs.all_cnn_c()
 
+    elif args.arch == 'all_cnn_net':
+        model = modelarchs.all_cnn_net()
+
     criterion = nn.CrossEntropyLoss().cuda()
     optimizer = optim.SGD(model.parameters(), 
                 lr=args.lr, momentum=args.momentum, weight_decay= args.weight_decay)
 
     if not args.pretrained:
         bestacc = 0
-    elif args.mix == 0:
+    else:
         pretrained_model = torch.load(args.pretrained[0])
-        best_acc = pretrained_model['acc']
-        args.start_epoch = pretrained_model['epoch']
+        bestacc = 0#pretrained_model['acc']
+        #args.start_epoch = pretrained_model['epoch']
         load_state(model, pretrained_model['state_dict'])
-        optimizer.load_state_dict(pretrained_model['optimizer'])
+        #optimizer.load_state_dict(pretrained_model['optimizer'])
 
     if args.cuda:
         model.cuda()
@@ -327,25 +337,36 @@ if __name__=='__main__':
     print(model)
 
     if args.lq:
-        LQ = lqnet.learned_quant(model, b = args.bits)
-
+        target_weights = gen_target_weights(model, args.arch)
+        LQ = lqnet.learned_quant(target_weights, b = args.bits)
 
 
     ''' evaluate model accuracy and loss only '''
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
+        if args.lq:
+            weightsdistribute(model)
         exit()
 
     ''' train model '''
 
-    for epoch in range(args.start_epoch,args.epochs):
+    for epoch in range(0,args.epochs):
         running_loss = 0.0
         adjust_learning_rate(optimizer, epoch, args)
         train(trainloader,optimizer, model, epoch, args)
         acc = test(testloader, model, epoch, args)
+        print('store quantized weights')
+        LQ.storeW()
+        LQ.apply_quantval()
         if (acc > bestacc):
             bestacc = acc
             save_state(model,acc,epoch,args, optimizer, True)
         else:
             save_state(model,bestacc,epoch,args,optimizer, False)
+        LQ.restoreW()
         print('best acc so far:{:4.2f}'.format(bestacc))
+
+
+    if args.lq:
+        weightsdistribute(model)
+
