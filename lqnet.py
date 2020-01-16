@@ -23,8 +23,10 @@ class learned_quant():
         self.B = []
         self.v = []
 
-        for weights in self.W:
+        for (i,weights) in enumerate(self.W):
             self.v.append(weights.data.abs().mean()/2.0)
+            #n = weights.shape[1] * weights.shape[2] * weights.shape[3]
+            self.v.append(NORM_PPF_0_75 * ((2. / n) ** 0.5) / (2 ** (self.b[i] -1)))
             self.preW.append(weights.data.clone())
             self.B.append(weights.data.clone().zero_())
 

@@ -32,14 +32,14 @@ def gen_target_weights(model, arch):
                 if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
                     target_weights.append(m.weight)
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
         target_weights = target_weights[1:-1]
     else:
         raise Exception ('{} not supported'.format(arch))
-    print('\nQuantizing:')
+    print('\nQuantizing {} layers:'.format(len(target_weights)))
     for item in target_weights:
         print(item.shape)
     print('\n')
@@ -218,7 +218,7 @@ if __name__=='__main__':
     parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
     parser.add_argument('--arch', action='store', default='resnet20',
-                        help='the CIFAR10 network structure: resnet20 | resnet18 | all_cnn_c | all_cnn_net')
+                        help='the CIFAR10 network structure: resnet20 | resnet18 | all_cnn_c | all_cnn_net | squeezenet')
     parser.add_argument('--dataset', action='store', default='cifar10',
             help='pretrained model: cifar10 | imagenet')
     parser.add_argument('--lq', default=False, 
@@ -315,6 +315,12 @@ if __name__=='__main__':
     elif args.arch == 'all_cnn_net':
         model = modelarchs.all_cnn_net()
 
+    elif args.arch == 'squeezenet':
+        model = torchvision.models.squeezenet1_1(pretrained=True, progress=True)
+
+    else:
+        raise ValueError("Unsupported arch {}".format(args.arch))
+
     criterion = nn.CrossEntropyLoss().cuda()
     optimizer = optim.SGD(model.parameters(), 
                 lr=args.lr, momentum=args.momentum, weight_decay= args.weight_decay)
@@ -338,6 +344,11 @@ if __name__=='__main__':
 
     if args.lq:
         target_weights = gen_target_weights(model, args.arch)
+        if len(args.bits) == 0:
+            raise ValueError("Empty setting for quatized bits")
+        elif len(args.bits) < len(target_weights):
+            print("Warning: set all quantized bits as {}".format(str(args.bits[0])))
+            args.bits = [args.bits[0]] * len(target_weights)
         LQ = lqnet.learned_quant(target_weights, b = args.bits)
 
 
@@ -356,8 +367,7 @@ if __name__=='__main__':
         train(trainloader,optimizer, model, epoch, args)
         acc = test(testloader, model, epoch, args)
         print('store quantized weights')
-        LQ.storeW()
-        LQ.apply_quantval()
+        LQ.apply(test=True)
         if (acc > bestacc):
             bestacc = acc
             save_state(model,acc,epoch,args, optimizer, True)
@@ -365,6 +375,10 @@ if __name__=='__main__':
             save_state(model,bestacc,epoch,args,optimizer, False)
         LQ.restoreW()
         print('best acc so far:{:4.2f}'.format(bestacc))
+
+    filename='saved_models/best.lq.'+str(args.arch)+'.ckp_origin.pth.tar'
+    best_model = torch.load(filename)
+    load_state(model, best_model['state_dict'])
 
 
     if args.lq:

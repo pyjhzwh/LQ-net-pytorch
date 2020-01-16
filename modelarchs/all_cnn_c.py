@@ -13,7 +13,7 @@ def ConvBlock(in_planes, out_planes, kernel_size=-1, padding=-1, stride=-1, relu
                 nn.Conv2d(in_planes, out_planes,
                     kernel_size=kernel_size, padding=padding, stride=stride,
                     bias=False),
-                nn.BatchNorm2d(out_planes, momentum=0.01),
+                #nn.BatchNorm2d(out_planes, momentum=0.01),
                 nn.ReLU(inplace=True)
                 )
     else:

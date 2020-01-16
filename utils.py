@@ -112,7 +112,7 @@ def to_cuda_optimizer(optimizer):
 
 def weightsdistribute(model):
     for key, value in model.named_parameters():
-        if '.0.weight' in key:
+        if 'conv' in key:
             unique, count = torch.unique(value, sorted=True, return_counts= True)
             print(unique,":",count)
 
