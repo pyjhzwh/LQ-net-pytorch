@@ -6,6 +6,7 @@ import warnings
 import time
 import random
 import shutil
+import math
 
 import torch
 import torch.nn as nn
@@ -27,10 +28,10 @@ def save_state(model, best_acc, epoch, args,optimizer, isbest):
             'optimizer': optimizer.state_dict(),
             'isbest': isbest,
             }
-    if args.lq is None:
-        filename = str(args.arch)+suffix
+    if not args.lq:
+        filename = str(args.arch)+'_'+str(args.bits[0])+suffix
     else:
-        filename = 'lq.'+str(args.arch)+suffix
+        filename = 'lq.'+str(args.arch)+'_'+str(args.bits[0])+suffix
     torch.save(state,dirpath+filename)
     if isbest:
         shutil.copyfile(dirpath+filename, dirpath+'best.'+filename)
@@ -114,5 +115,53 @@ def weightsdistribute(model):
     for key, value in model.named_parameters():
         if 'conv' in key:
             unique, count = torch.unique(value, sorted=True, return_counts= True)
+            bias = torch.mean(unique)
+            #print('bits:', torch.log2(torch.max(unique.abs())/torch.min(unique.abs())+1))
+            #print('bits:', math.log2(len(unique)))
             print(unique,":",count)
+            print('basis',torch.min(unique.abs()))
+            print('bias',bias)
+            print('bits',torch.log2((torch.max(unique.abs()) - bias)/(torch.min(unique.abs()) -bias) +1))
 
+def gen_target_weights(model, arch):
+    target_weights = []
+    if arch == 'resnet18' or arch == 'resnet20':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
+                    target_weights.append(m.weight)
+
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                target_weights.append(m.weight)
+        target_weights = target_weights[1:-1]
+    else:
+        raise Exception ('{} not supported'.format(arch))
+    print('\nQuantizing {} layers:'.format(len(target_weights)))
+    for item in target_weights:
+        print(item.shape)
+    print('\n')
+    return target_weights
+
+
+def weight_mean(model,arch):
+    i=0
+    if arch == 'resnet18' or arch == 'resnet20':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
+                    print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))
+                    i = i+1
+                    
+
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                    print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))
+                    print('mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()), 'min',torch.min(m.weight.data)/ torch.min(m.weight.data.abs()), 'max', torch.max(m.weight.data)/ torch.min(m.weight.data.abs()))
+                    i = i+1
+    else:
+        raise Exception ('{} not supported'.format(arch))
+    print('\n')
+    return 

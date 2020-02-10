@@ -24,26 +24,6 @@ from utils import *
 import modelarchs
 import lqnet
 
-def gen_target_weights(model, arch):
-    target_weights = []
-    if arch == 'resnet18' or arch == 'resnet20':
-        for m in model.modules():
-            if isinstance(m, nn.Conv2d):
-                if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
-                    target_weights.append(m.weight)
-
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
-        for m in model.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-                target_weights.append(m.weight)
-        target_weights = target_weights[1:-1]
-    else:
-        raise Exception ('{} not supported'.format(arch))
-    print('\nQuantizing {} layers:'.format(len(target_weights)))
-    for item in target_weights:
-        print(item.shape)
-    print('\n')
-    return target_weights
 
 def test(val_loader, model, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -75,7 +55,10 @@ def test(val_loader, model, epoch, args):
             images, target = Variable(images.cuda()), Variable(target.cuda())
 
             # compute output
-            output = model(images)
+            if args.arch == 'all_cnn_net':
+                output,_ = model(images)
+            else:
+                output = model(images)
             loss = criterion(output, target)
 
             # measure accuracy and record loss
@@ -129,7 +112,10 @@ def train(train_loader,optimizer, model, epoch, args):
             LQ.apply()
 
         # compute output
-        output = model(images)
+        if args.arch == 'all_cnn_net':
+            output,_ = model(images)
+        else:
+            output = model(images)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -225,6 +211,8 @@ if __name__=='__main__':
             help = 'use lq-net quantization or not',action='store_true')
     parser.add_argument('--bits', default = [2,2,2,2,2,2,2,2,2], type = int,
                     nargs = '*', help = ' num of bits for each layer')
+    parser.add_argument('--needbias', default=False, 
+            help = 'use bias in quantized value or not',action='store_true')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -349,38 +337,42 @@ if __name__=='__main__':
         elif len(args.bits) < len(target_weights):
             print("Warning: set all quantized bits as {}".format(str(args.bits[0])))
             args.bits = [args.bits[0]] * len(target_weights)
-        LQ = lqnet.learned_quant(target_weights, b = args.bits)
+        LQ = lqnet.learned_quant(target_weights, b = args.bits,needbias=args.needbias)
 
 
     ''' evaluate model accuracy and loss only '''
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
         if args.lq:
-            weightsdistribute(model)
+            #weightsdistribute(model)
+            weight_mean(model,args.arch)
         exit()
 
     ''' train model '''
 
+    
     for epoch in range(0,args.epochs):
         running_loss = 0.0
         adjust_learning_rate(optimizer, epoch, args)
         train(trainloader,optimizer, model, epoch, args)
         acc = test(testloader, model, epoch, args)
-        print('store quantized weights')
-        LQ.apply(test=True)
+        if args.lq:
+            print('store quantized weights')
+            LQ.apply(test=True)
         if (acc > bestacc):
             bestacc = acc
             save_state(model,acc,epoch,args, optimizer, True)
         else:
             save_state(model,bestacc,epoch,args,optimizer, False)
-        LQ.restoreW()
+        if args.lq:
+            LQ.restoreW()
         print('best acc so far:{:4.2f}'.format(bestacc))
-
-    filename='saved_models/best.lq.'+str(args.arch)+'.ckp_origin.pth.tar'
-    best_model = torch.load(filename)
-    load_state(model, best_model['state_dict'])
-
-
+    
     if args.lq:
+        filename='saved_models/best.lq.'+str(args.arch)+'.ckp_origin.pth.tar'
+        best_model = torch.load(filename)
+        load_state(model, best_model['state_dict'])
         weightsdistribute(model)
+
+
 

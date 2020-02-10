@@ -43,46 +43,97 @@ class conv_block(nn.Module):
 
         self.conv = nn.Conv2d(self.in_planes, self.out_planes, self.kernel_size,
                 padding=self.padding, stride=self.stride, bias = False)
+        
+        self.bn = nn.BatchNorm2d(self.out_planes)
 
         self.relu = nn.ReLU(inplace=True)
     
-    def forward(self, x, computation=0):
+    def forward(self, x):
+        computation = 0
+
         if self.early_predict == 0:
-            return(self.relu(self.conv(x)))
+            return(self.relu(self.bn(self.conv(x)))), computation
         elif self.early_predict == 1:
             # groudtruth conv
-            ground_relu = self.relu(self.conv(x))
+            ground_conv = self.conv(x)
+            ground_relu = self.relu(ground_conv)
             # early_predict conv
             saved_w = self.conv.weight.data
             basis = torch.min(saved_w.abs())
-            bits = (torch.max(saved_w) / basis).int()
+            bits = torch.log2((torch.max(saved_w) / basis)+1).int()
+            #print('basis',basis,' bits',bits)
             mask_pos = (saved_w >= 0).float()
             self.conv.weight.data = saved_w * mask_pos
             conv = self.conv(x)
             # computation for all postive weights
             computation = torch.sum(mask_pos) / saved_w.numel()
             remainder = saved_w.detach() * (1-mask_pos) / basis
+            saved_w_test = self.conv.weight.data
+            #print('remainder',remainder[0,0,:,:])
             for i in range(bits):
                 # mask for negative weights, bit by bit
-                mask_wn = torch.ceil(remainder / 2**(bits-1-i))
+                mask_wn = torch.round(remainder / 2**(bits-1-i))
                 remainder = remainder - mask_wn * (2**(bits-1-i))
                 # mask for output becomes featuremap negative
-                mask_on = (conv1 > 0).float()
+                mask_on = (conv > 0).float()
+                self.conv.weight.data = basis * mask_wn * (2**(bits-1-i))
+                saved_w_test += self.conv.weight.data
+                conv += self.conv(x) * mask_on
+                # computation do not count if output featuremap has already been negative
+                # consider sparcity of weights
+                #computation += (-1) * torch.sum(mask_wn) / saved_w.numel() * torch.sum(mask_on) / conv.numel() / bits.float()
+                # exclude sparcity of weights
+                computation += torch.sum(1-mask_pos) / saved_w.numel() * torch.sum(mask_on) / conv.numel() / bits.float()
+            #print(torch.sum(conv>0).float()/ conv.numel())
+            x = self.relu(conv)
+            self.conv.weight.data = saved_w
+
+            if torch.max(x-ground_relu) > 1e-3:
+                print("different result of relu")
+
+            return x, computation
+
+        elif self.early_predict == 2:
+
+            # groudtruth conv
+            ground_conv = self.conv(x)
+            ground_relu = self.relu(ground_conv)
+            # early_predict conv
+            saved_w = self.conv.weight.data
+            basis = torch.min(saved_w.abs())
+            bits = torch.log2((torch.max(saved_w) / basis)+1).int()
+            #print('basis',basis,' bits',bits)
+            mask_pos = (saved_w >= 0).float()
+            conv = torch.zeros_like(self.conv(x))
+            # computation for all postive weights
+            computation = 0
+            remainder = saved_w.detach() / basis
+            #print('remainder',remainder[0,0,:,:])
+            for i in range(bits):
+                # mask for negative weights, bit by bit
+                mask_wn = torch.round(remainder / 2**(bits-1-i)) 
+                remainder = remainder - mask_wn * (2**(bits-1-i))
+                # mask for output becomes featuremap negative
+                if i==0:
+                    mask_on = torch.ones_like(conv)
+                else:
+                    mask_on = (conv > 0).float()
                 self.conv.weight.data = basis * mask_wn * (2**(bits-1-i))
                 conv += self.conv(x) * mask_on
-                # compuation do not count if output featuremap has already been negative
-                computation += (-1) * torch.sum(mask_wn) / saved_w.numel() * torch.sum(mask_on) / conv.numel() / bits.float()
-            #print('computation',computation)
-            self.conv.weight.data = saved_w
+                # computation do not count if output featuremap has already been negative
+                # consider sparcity of weights
+                #computation += torch.sum(mask_wn*(2*mask_pos-1)) / saved_w.numel() * torch.sum(mask_on) / conv.numel() / bits.float()
+                # exclude sparcity of weights
+                computation += torch.sum(mask_on) / conv.numel() / bits.float()
             x = self.relu(conv)
+            self.conv.weight.data = saved_w
 
+            #false_neg = torch.sum(ground_relu[x==0] >0).float()/ x.numel()
+            #print(false_neg)
             if torch.max(x-ground_relu) > 1e-2:
                 print("different result of relu")
 
-            return x
-
-        #elif self.early_predict == 2:
-            # TBD
+            return x, computation
 
         else:
             raise ValueError("early_predict mode has no {} option".format(self.early_predict))
@@ -125,28 +176,57 @@ class all_cnn_net(nn.Module):
 
     def forward(self,x):
 
-        x = self.conv0(x)
-        x = self.conv1(x)
-        x = self.conv2(x)
+        computation = torch.zeros(7, dtype=torch.float).cuda()
+        x,_ = self.conv0(x)
+        x,computation[0] = self.conv1(x) 
+        x,computation[1] = self.conv2(x)
 
         x = self.dropout0(x)
 
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
+        x,computation[2] = self.conv3(x)
+        x,computation[3] = self.conv4(x)
+        x,computation[4] = self.conv5(x)
 
         x = self.dropout1(x)
 
-        x = self.conv6(x)
-        x = self.conv7(x)
-        x = self.conv8(x)
+        x,computation[5] = self.conv6(x)
+        x,computation[6] = self.conv7(x)
+        x,_ = self.conv8(x)
 
         #x = self.avgpool(x)
         x = F.avg_pool2d(x, kernel_size=x.size(2))
         x = x.view(x.size(0),-1)
         
-        return x
+        return x, computation
     
+    def layer_computation_weight(self,x):
+
+        computation_weight = torch.zeros(7, dtype=torch.float).cuda()
+        x,_ = self.conv0(x)
+        x,_ = self.conv1(x)
+        computation_weight[0] = (self.conv1.conv.weight.data.shape[1] * self.conv1.conv.weight.data.shape[2] * self.conv1.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+        x,_ = self.conv2(x)
+        computation_weight[1] = (self.conv2.conv.weight.data.shape[1] * self.conv2.conv.weight.data.shape[2] * self.conv2.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+        
+        x = self.dropout0(x)
+
+        x,_ = self.conv3(x)
+        computation_weight[2] = (self.conv3.conv.weight.data.shape[1] * self.conv3.conv.weight.data.shape[2] * self.conv3.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+        x,_ = self.conv4(x)
+        computation_weight[3] = (self.conv4.conv.weight.data.shape[1] * self.conv4.conv.weight.data.shape[2] * self.conv4.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+        x,_ = self.conv5(x)
+        computation_weight[4] = (self.conv5.conv.weight.data.shape[1] * self.conv5.conv.weight.data.shape[2] * self.conv5.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+
+        x = self.dropout1(x)
+
+        x,_ = self.conv6(x)
+        computation_weight[5] = (self.conv6.conv.weight.data.shape[1] * self.conv6.conv.weight.data.shape[2] * self.conv6.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+        x,_ = self.conv7(x)
+        computation_weight[6] = (self.conv7.conv.weight.data.shape[1] * self.conv7.conv.weight.data.shape[2] * self.conv7.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
+
+
+        return computation_weight
+
     '''
     def _conv_block(self, in_planes, out_planes, kernel_size=1, padding=1,
             stride = 1, relu = True):
@@ -187,7 +267,7 @@ class all_cnn_net(nn.Module):
             mask_on = (conv1 > 0).float()
             self.conv1.weight.data = self.basis[1] * mask_wn * (2**(self.bits[1] -i -1))
             conv1 += self.conv1(x) * mask_on
-            # compuation do not count if output featuremap has already been negative
+            # computation do not count if output featuremap has already been negative
             computation[1] += (i+1) * torch.sum(mask_wn) / saved_w.numel() * torch.sum(mask_on) / conv1.numel()
         computation[1] /= self.bits[1] 
         print('computation[1]',computation[1])
