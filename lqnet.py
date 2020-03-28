@@ -23,6 +23,7 @@ class learned_quant():
         self.B = []
         self.v = []
         self.Wmean = []
+        self.needbias = needbias
 
         for (i,weights) in enumerate(self.W):
             self.v.append(torch.max(weights.data)/ (2**self.b[i]-1))
@@ -32,7 +33,7 @@ class learned_quant():
             self.preW.append(weights.data.clone())
             self.B.append(weights.data.clone().zero_())
             # layer-wise mean of target weight
-            if needbias:
+            if self.needbias:
                 self.Wmean.append(torch.mean(weights.data))
             else:
                 self.Wmean.append(0)
@@ -56,22 +57,28 @@ class learned_quant():
 
     def update(self, test=False):
         for i in range(len(self.W)):
-            # update Wmean
-            self.Wmean[i] = torch.mean(self.W[i].data)
             # compute Bi with v
-            self.B[i] = (self.W[i].data - self.Wmean[i]) / self.v[i]
+            #self.B[i] = (self.W[i].data - self.Wmean[i]) / self.v[i]
+            # now Q = round(float / scale + zero_point)
+            # scale: float, zero_point:int
+            # zero_point = round( -self.Wmean[i] / self.v[i])
+            self.B[i] = self.W[i].data / self.v[i] - torch.round(self.Wmean[i] / self.v[i])
             self.B[i] = torch.round((self.B[i]-1)/2)*2+1
             self.B[i] = torch.clamp(self.B[i], -(pow(2,self.b[i])-1), pow(2,self.b[i])-1)
 
             # compute v[i] with B[i]
-            vi = torch.sum(torch.mul(self.B[i],self.W[i].data) / torch.sum(torch.mul(self.B[i],self.B[i])))
+            vi = torch.sum(torch.mul(self.B[i],(self.W[i].data - self.Wmean[i])) / torch.sum(torch.mul(self.B[i],self.B[i])))
             # update v[i] with moving average
             if not test:
                 self.v[i] = self.v[i] * self.moving_aver + vi * (1-self.moving_aver)
 
             # apply B[i] to W[i]
             #self.preW[i].copy_(self.W[i].data)
-            self.W[i].data.copy_(self.B[i]*self.v[i] + self.Wmean[i])
+            #self.W[i].data.copy_(self.B[i]*self.v[i] + self.Wmean[i])
+            self.W[i].data.copy_((self.B[i] - torch.round(self.Wmean[i] / self.v[i]))* self.v[i])
+            # update Wmean
+            if self.needbias:
+                self.Wmean[i] = torch.mean(self.W[i].data)
 
     # use gradient of Bi to update Wi
     # turn W to floating point representation 
@@ -98,14 +105,16 @@ class learned_quant():
     def apply_quantval(self):
         
         for i in range(len(self.W)):
-            self.W[i].data.copy_(self.B[i] * self.v[i]+self.Wmean[i])
+            #self.W[i].data.copy_(self.B[i] * self.v[i]+self.Wmean[i])
+            self.W[i].data.copy_((self.B[i] - torch.round(self.Wmean[i] / self.v[i])) * self.v[i])
 
     def storequntW(self):
     
         i = 0
         for key, value in self.model.named_parameters():
             if key in layerdict:
-                self.model.state_dict()[key].copy_(self.B[i]*self.v[i]+self.Wmean[i])
+                #self.model.state_dict()[key].copy_(self.B[i]*self.v[i]+self.Wmean[i])
+                self.model.state_dict()[key].copy_((self.B[i] - torch.round(self.Wmean[i] / self.v[i]))* self.v[i])
                 i = i + 1
 
     '''
@@ -120,7 +129,8 @@ class learned_quant():
         for i in range(len(self.W)):
             print(i,' layer')
             print('W val:',self.W[i].data.view(1,-1))
-            print('quant val:',(self.B[i]*self.v[i]).view(1,-1))
+            #print('quant val:',(self.B[i]*self.v[i]+self.Wmean[i]).view(1,-1))
+            print('quant val:',((self.B[i] - torch.round(self.Wmean[i] / self.v[i]))* self.v[i]).view(1,-1))
             print('v val:', self.v[i])
             print('bias val:',self.Wmean[i])
             #print('bits utlized:', torch.log2(torch.max(self.B[i].abs()+1)))
