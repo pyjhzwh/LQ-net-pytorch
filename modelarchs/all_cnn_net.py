@@ -28,7 +28,7 @@ def downsample(data, outsize=28):
 class conv_block(nn.Module):
 
     def __init__(self, in_planes, out_planes, kernel_size=1, padding=1,
-            stride = 1, relu = True, early_predict=0):
+            stride = 1, relu = True, early_predict=0, bn_adjust=0):
         super(conv_block, self).__init__()
         self.in_planes = in_planes
         self.out_planes = out_planes
@@ -40,6 +40,7 @@ class conv_block(nn.Module):
         # 1: exact mode (first positive weights, then negative weights from the MSB to LSB)
         # 2: predictive mode ( deal with postive and negative weights together)
         self.early_predict = early_predict
+        self.bn_adjust = bn_adjust
 
         self.conv = nn.Conv2d(self.in_planes, self.out_planes, self.kernel_size,
                 padding=self.padding, stride=self.stride, bias = False)
@@ -48,11 +49,15 @@ class conv_block(nn.Module):
 
         self.relu = nn.ReLU(inplace=True)
     
-    def forward(self, x):
+    def forward(self, x,epoch=0):
         computation = 0
 
         if self.early_predict == 0:
+            #if epoch <= 250:
+                #return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
+            #else:
             return(self.relu(self.bn(self.conv(x)))), computation
+
         elif self.early_predict == 1:
             # groudtruth conv
             ground_conv = self.conv(x)
@@ -146,19 +151,19 @@ class all_cnn_net(nn.Module):
         self.early_predict = early_predict
 
         self.conv0 = conv_block(3, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=0)
-        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict)
-        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict)
+        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.08)
+        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0.08)
 
         self.dropout0 = nn.Dropout(p=0.5)
 
-        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict)
-        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict)
-        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict)
+        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
+        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
+        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
 
         self.dropout1 = nn.Dropout(p=0.5)
 
-        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict)
-        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True,early_predict=self.early_predict)
+        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
+        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.08)
         self.conv8 = conv_block(192, 10, kernel_size=1, padding=0, stride=1, relu=True,early_predict=0)
 
         for m in self.modules():
@@ -174,24 +179,24 @@ class all_cnn_net(nn.Module):
                 #nn.init.constant_(m.bias,0)
 
 
-    def forward(self,x):
+    def forward(self,x,epoch):
 
         computation = torch.zeros(7, dtype=torch.float).cuda()
-        x,_ = self.conv0(x)
-        x,computation[0] = self.conv1(x) 
-        x,computation[1] = self.conv2(x)
+        x,_ = self.conv0(x,epoch)
+        x,computation[0] = self.conv1(x,epoch)
+        x,computation[1] = self.conv2(x,epoch)
 
         x = self.dropout0(x)
 
-        x,computation[2] = self.conv3(x)
-        x,computation[3] = self.conv4(x)
-        x,computation[4] = self.conv5(x)
+        x,computation[2] = self.conv3(x,epoch)
+        x,computation[3] = self.conv4(x,epoch)
+        x,computation[4] = self.conv5(x,epoch)
 
         x = self.dropout1(x)
 
-        x,computation[5] = self.conv6(x)
-        x,computation[6] = self.conv7(x)
-        x,_ = self.conv8(x)
+        x,computation[5] = self.conv6(x,epoch)
+        x,computation[6] = self.conv7(x,epoch)
+        x,_ = self.conv8(x,epoch)
 
         #x = self.avgpool(x)
         x = F.avg_pool2d(x, kernel_size=x.size(2))

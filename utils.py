@@ -113,15 +113,15 @@ def to_cuda_optimizer(optimizer):
 
 def weightsdistribute(model):
     for key, value in model.named_parameters():
-        if 'conv' in key:
+        if 'conv' in key and 'weight' in key:
             unique, count = torch.unique(value, sorted=True, return_counts= True)
-            bias = torch.mean(unique)
+            #bias = torch.mean(value)
             #print('bits:', torch.log2(torch.max(unique.abs())/torch.min(unique.abs())+1))
             #print('bits:', math.log2(len(unique)))
             print(unique,":",count)
-            print('basis',torch.min(unique.abs()))
-            print('bias',bias)
-            print('bits',torch.log2((torch.max(unique.abs()) - bias)/(torch.min(unique.abs()) -bias) +1))
+            #print('basis',torch.min(unique.abs()))
+            #print('bias',bias)
+            #print('bits',torch.log2((torch.max(unique.abs()) - bias)/(torch.min(unique.abs()) -bias) +1))
 
 def gen_target_weights(model, arch):
     target_weights = []

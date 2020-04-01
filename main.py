@@ -56,7 +56,7 @@ def test(val_loader, model, epoch, args):
 
             # compute output
             if args.arch == 'all_cnn_net':
-                output,_ = model(images)
+                output,_ = model(images,epoch)
             else:
                 output = model(images)
             loss = criterion(output, target)
@@ -113,7 +113,7 @@ def train(train_loader,optimizer, model, epoch, args):
 
         # compute output
         if args.arch == 'all_cnn_net':
-            output,_ = model(images)
+            output,_ = model(images,epoch)
         else:
             output = model(images)
         loss = criterion(output, target)
@@ -318,7 +318,7 @@ if __name__=='__main__':
     else:
         pretrained_model = torch.load(args.pretrained[0])
         bestacc = 0#pretrained_model['acc']
-        #args.start_epoch = pretrained_model['epoch']
+        args.start_epoch = pretrained_model['epoch']
         load_state(model, pretrained_model['state_dict'])
         #optimizer.load_state_dict(pretrained_model['optimizer'])
 
@@ -344,8 +344,8 @@ if __name__=='__main__':
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
         if args.lq:
-            #weightsdistribute(model)
-            weight_mean(model,args.arch)
+            weightsdistribute(model)
+            #weight_mean(model,args.arch)
         exit()
 
     ''' train model '''
