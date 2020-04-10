@@ -5,7 +5,6 @@ import os
 import warnings
 import time
 import random
-import accimage
 import numpy as np
 import sys
 import matplotlib
@@ -356,14 +355,15 @@ if __name__=='__main__':
         adjust_learning_rate(optimizer, epoch, args)
         train(trainloader,optimizer, model, epoch, args)
         acc = test(testloader, model, epoch, args)
+        quantdict = LQ.save_quantinfo()
         if args.lq:
             print('store quantized weights')
             LQ.apply(test=True)
         if (acc > bestacc):
             bestacc = acc
-            save_state(model,acc,epoch,args, optimizer, True)
+            save_state(model,acc,epoch,args, optimizer, True, quantdict)
         else:
-            save_state(model,bestacc,epoch,args,optimizer, False)
+            save_state(model,bestacc,epoch,args,optimizer, False, quantdict)
         if args.lq:
             LQ.restoreW()
         print('best acc so far:{:4.2f}'.format(bestacc))

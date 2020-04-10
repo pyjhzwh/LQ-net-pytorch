@@ -18,7 +18,7 @@ from torch.autograd import Variable
 
 import modelarchs
 
-def save_state(model, best_acc, epoch, args,optimizer, isbest):
+def save_state(model, best_acc, epoch, args,optimizer, isbest, quant_info=None):
     dirpath = 'saved_models/'
     suffix = '.ckp_origin.pth.tar'
     state = {
@@ -27,6 +27,7 @@ def save_state(model, best_acc, epoch, args,optimizer, isbest):
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'isbest': isbest,
+            'quant_info': quant_info
             }
     if not args.lq:
         filename = str(args.arch)+'_'+str(args.bits[0])+suffix
