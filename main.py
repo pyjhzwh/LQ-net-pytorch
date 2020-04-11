@@ -336,7 +336,7 @@ if __name__=='__main__':
         elif len(args.bits) < len(target_weights):
             print("Warning: set all quantized bits as {}".format(str(args.bits[0])))
             args.bits = [args.bits[0]] * len(target_weights)
-        LQ = lqnet.learned_quant(target_weights, b = args.bits,needbias=args.needbias)
+        LQ = lqnet.learned_quant( target_weights, b = args.bits,needbias=args.needbias)
 
 
     ''' evaluate model accuracy and loss only '''
@@ -355,7 +355,9 @@ if __name__=='__main__':
         adjust_learning_rate(optimizer, epoch, args)
         train(trainloader,optimizer, model, epoch, args)
         acc = test(testloader, model, epoch, args)
-        quantdict = LQ.save_quantinfo()
+        quantdict=None
+        if args.lq:
+            quantdict = LQ.save_quantinfo()
         if args.lq:
             print('store quantized weights')
             LQ.apply(test=True)

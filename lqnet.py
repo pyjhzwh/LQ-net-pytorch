@@ -64,7 +64,7 @@ class learned_quant():
             # now Q = round(float / scale + zero_point)
             # scale: float, zero_point:int, odd
             #self.zero_point[i] = torch.round( (-self.Wmean[i] / self.v[i] -1)/2)*2 + 1
-            self.B[i] = self.W[i].data / self.v[i] + self.zero_point[i]
+            #self.B[i] = self.W[i].data / self.v[i] + self.zero_point[i]
             self.B[i] = torch.round((self.B[i]-1)/2)*2+1
             self.B[i] = torch.clamp(self.B[i], -(pow(2,self.b[i])-1), pow(2,self.b[i])-1)
 
@@ -155,12 +155,10 @@ class learned_quant():
     def save_quantinfo(self):
         quant_info={}
         i = 0
-        for key, value in self.model.named_parameters():
-            if key in layerdict:
-                quant_info[key] = {}
-                quant_info[key]['bias'] = self.Wmean[i]
-                quant_info[key]['scale'] = self.v[i]
-                i = i + 1
+        for i in range(len(self.W)):
+            quant_info[i] = {}
+            quant_info[i]['bias'] = self.Wmean[i]
+            quant_info[i]['scale'] = self.v[i]
 
         return quant_info
     
