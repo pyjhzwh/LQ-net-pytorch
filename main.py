@@ -255,7 +255,7 @@ if __name__=='__main__':
 
 
     if args.dataset == 'imagenet':
-        nclass=100 
+        nclass=1000
         traindir = os.path.join(imagenet_datapath,'train')
         testdir = os.path.join(imagenet_datapath,'val')
         torchvision.set_image_backend('accimage')
