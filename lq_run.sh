@@ -22,9 +22,9 @@ COMMAND1
 #CUDA_VISIBLE_DEVICES=0,1 python3 main.py --arch all_cnn_c --dataset cifar10 --lr 1e-2 --epochs 450 --wd 1e-3 --admm --admm-iter 10 --pretrained saved_models/best.all_cnn_c.32.32.ckp_origin.pth.tar --bits 2 1 2 2 2 2 2 2 2  &> ${DIR}/admm.pretrained.log 2>&1
 
 bitsets=(
-#    "4"
+    "4"
     "8"
-#    "16"
+    "16"
 #    "  3 3  3 3 3  3 3 "
 #    "  2 2  1 1 1  2 2 "
 #    "  2 2  2 2 2  1 1 "

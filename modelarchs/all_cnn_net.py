@@ -53,10 +53,10 @@ class conv_block(nn.Module):
         computation = 0
 
         if self.early_predict == 0:
-            #if epoch <= 250:
-                #return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
-            #else:
-            return(self.relu(self.bn(self.conv(x)))), computation
+            if epoch <= 250:
+                return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
+            else:
+                return(self.relu(self.bn(self.conv(x)))), computation
 
         elif self.early_predict == 1:
             # groudtruth conv
@@ -151,19 +151,19 @@ class all_cnn_net(nn.Module):
         self.early_predict = early_predict
 
         self.conv0 = conv_block(3, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=0)
-        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.08)
-        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0.08)
+        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
+        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
 
         self.dropout0 = nn.Dropout(p=0.5)
 
-        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
-        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
-        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
+        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
+        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
+        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
 
         self.dropout1 = nn.Dropout(p=0.5)
 
-        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.12)
-        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.08)
+        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
+        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0.15)
         self.conv8 = conv_block(192, 10, kernel_size=1, padding=0, stride=1, relu=True,early_predict=0)
 
         for m in self.modules():

@@ -371,7 +371,7 @@ if __name__=='__main__':
         print('best acc so far:{:4.2f}'.format(bestacc))
     
     if args.lq:
-        filename='saved_models/best.lq.'+str(args.arch)+'.ckp_origin.pth.tar'
+        filename='saved_models/best.lq.'+str(args.arch)+'_'+str(args.bits[0])+'.ckp_origin.pth.tar'
         best_model = torch.load(filename)
         load_state(model, best_model['state_dict'])
         weightsdistribute(model)
