@@ -212,6 +212,8 @@ if __name__=='__main__':
                     nargs = '*', help = ' num of bits for each layer')
     parser.add_argument('--needbias', default=False, 
             help = 'use bias in quantized value or not',action='store_true')
+    parser.add_argument('--block_type', action='store', default='convbnrelu',
+            help='convbnrelu or convrelubn')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -300,7 +302,7 @@ if __name__=='__main__':
         model = modelarchs.all_cnn_c()
 
     elif args.arch == 'all_cnn_net':
-        model = modelarchs.all_cnn_net()
+        model = modelarchs.all_cnn_net(block_type=args.block_type)
 
     elif args.arch == 'squeezenet':
         model = torchvision.models.squeezenet1_1(pretrained=True, progress=True)
