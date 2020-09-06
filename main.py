@@ -298,9 +298,6 @@ if __name__=='__main__':
         model = torchvision.models.resnet18(pretrained = pretrained)
         bestacc = 0
 
-    elif args.arch == 'all_cnn_c':
-        model = modelarchs.all_cnn_c()
-
     elif args.arch == 'all_cnn_net':
         model = modelarchs.all_cnn_net(block_type=args.block_type)
 

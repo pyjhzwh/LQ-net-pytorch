@@ -10,10 +10,9 @@ from ._conv_block import *
 
 
 class all_cnn_net(nn.Module):
-    def __init__(self, nclass=10, early_predict=0, block_type='convbnrelu'):
+    def __init__(self, nclass=10, block_type='convbnrelu'):
         super(all_cnn_net,self).__init__()
         self.nclass = nclass
-        self.early_predict = early_predict
 
         if block_type == 'convbnrelu':
             conv_block = convbnrelu_block 
@@ -22,21 +21,21 @@ class all_cnn_net(nn.Module):
         else:
             ValueError('conv_block type either be convbnreku or convrelubn')
 
-        self.conv0 = conv_block(3, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=0)
-        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0)
-        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0)
+        self.conv0 = conv_block(3, 96, kernel_size=3, padding=1, stride=1, relu=True)
+        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True)
+        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True)
 
         self.dropout0 = nn.Dropout(p=0.5)
 
-        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0)
-        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0)
-        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True,early_predict=self.early_predict, bn_adjust=0)
+        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True)
+        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True)
+        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True)
 
         self.dropout1 = nn.Dropout(p=0.5)
 
-        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0)
-        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True,early_predict=self.early_predict, bn_adjust=0)
-        self.conv8 = conv_block(192, 10, kernel_size=1, padding=0, stride=1, relu=True,early_predict=0)
+        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True)
+        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True)
+        self.conv8 = conv_block(192, 10, kernel_size=1, padding=0, stride=1, relu=True)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
