@@ -6,12 +6,12 @@ $$w = Qw * w_{scale} + w_{bias}$$
 
 
 ## File structure
-lq_run.sh - bash file to run the LQ-net codes
-lqnet.py
-utils.py - quantizing network helpers: gen_target_weights, save_state, etc.
-main.py
-modelarchs/* - network architecture file
-saved_models/* - pytorch saved models
+* lq_run.sh - bash file to run the LQ-net codes
+* lqnet.py - that's where LQ-net quantizer work
+* utils.py - quantizing network helpers: gen_target_weights, save_state, etc.
+* main.py - main 
+* modelarchs/\* - network architecture file
+* saved_models/\* - pytorch saved models
 
 ### Explaination for some files/functions
 * gen_target_weights(model, arch) in utils.py: By specifying the layers that need quantization to target_weights list, the LQ-net quantizer will quantize them in the training process. Usually to maintain high accuracy, the first or last layer will not be quantized
