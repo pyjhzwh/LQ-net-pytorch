@@ -132,7 +132,7 @@ def gen_target_weights(model, arch):
                 if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
                     target_weights.append(m.weight)
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet' or arch == 'alexnet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
@@ -156,7 +156,7 @@ def weight_mean(model,arch):
                     i = i+1
                     
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet' or arch == 'alexnet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))

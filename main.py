@@ -169,7 +169,7 @@ def accuracy(output, target, topk=(1,)):
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
@@ -297,6 +297,10 @@ if __name__=='__main__':
         pretrained = True
         model = torchvision.models.resnet18(pretrained = pretrained)
         bestacc = 0
+
+    elif args.arch == 'alexnet':
+        model = modelarchs.alexnet(block_type=args.block_type)
+        #model = torchvision.models.alexnet(pretrained = False)
 
     elif args.arch == 'all_cnn_net':
         model = modelarchs.all_cnn_net(block_type=args.block_type)
