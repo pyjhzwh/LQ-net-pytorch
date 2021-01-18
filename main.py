@@ -43,6 +43,7 @@ def test(val_loader, model, epoch, args):
         # apply quantized value to testing stage
         if args.lq:
             LQ.apply(test=True)
+            weightsdistribute(model)
         #if args.lq:
             #LQ.storeW()
             #LQ.apply_quantval()
@@ -58,6 +59,9 @@ def test(val_loader, model, epoch, args):
                 output,_ = model(images,epoch)
             else:
                 output = model(images)
+            if i== 0:
+                print('input',images[0,0,0,:5])
+                print('output', output[:5])
             loss = criterion(output, target)
 
             # measure accuracy and record loss
@@ -341,14 +345,14 @@ if __name__=='__main__':
             args.bits = [args.bits[0]] * len(target_weights)
         LQ = lqnet.learned_quant( target_weights, b = args.bits,needbias=args.needbias)
 
-
     ''' evaluate model accuracy and loss only '''
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
-        if args.lq:
-            weightsdistribute(model)
+        #if args.lq:
+        weightsdistribute(model)
             #weight_mean(model,args.arch)
         exit()
+
 
     ''' train model '''
 

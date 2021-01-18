@@ -114,8 +114,10 @@ def to_cuda_optimizer(optimizer):
 
 def weightsdistribute(model):
     for key, value in model.named_parameters():
-        if 'conv' in key and 'weight' in key:
-            unique, count = torch.unique(value, sorted=True, return_counts= True)
+        if 'conv.weight' in key:
+            unique, count = torch.unique(value.data, sorted=True, return_counts= True)
+            print('layer ', key)
+            print('first weight', value.data[0,0,0])
             #bias = torch.mean(value)
             #print('bits:', torch.log2(torch.max(unique.abs())/torch.min(unique.abs())+1))
             #print('bits:', math.log2(len(unique)))
@@ -132,11 +134,17 @@ def gen_target_weights(model, arch):
                 if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
                     target_weights.append(m.weight)
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet' or arch == 'alexnet':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
         target_weights = target_weights[1:-1]
+    elif arch == 'alexnet':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                target_weights.append(m.weight)
+        target_weights = target_weights[1:]
+
     else:
         raise Exception ('{} not supported'.format(arch))
     print('\nQuantizing {} layers:'.format(len(target_weights)))
@@ -156,12 +164,19 @@ def weight_mean(model,arch):
                     i = i+1
                     
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet' or arch == 'alexnet':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))
                     print('mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()), 'min',torch.min(m.weight.data)/ torch.min(m.weight.data.abs()), 'max', torch.max(m.weight.data)/ torch.min(m.weight.data.abs()))
                     i = i+1
+    elif arch == 'alexnet':
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                    print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))
+                    print('mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()), 'min',torch.min(m.weight.data)/ torch.min(m.weight.data.abs()), 'max', torch.max(m.weight.data)/ torch.min(m.weight.data.abs()))
+                    i = i+1
+
     else:
         raise Exception ('{} not supported'.format(arch))
     print('\n')
