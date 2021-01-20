@@ -14,18 +14,24 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from ._conv_block import *
+import itertools
+try:
+    from torch.hub import load_state_dict_from_url
+except ImportError:
+    from torch.utils.model_zoo import load_url as load_state_dict_from_url
+      
+model_urls = {
+    'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
+}
 
-class alexnet(nn.Module):
-    def __init__(self, nclass=1000,block_type='convbnrelu',early_predict=0, b_thr=0, bits=None, addbias=False,adjustthr=0,quantW=False, quantAct=False,quantInfo=None):
-        super(alexnet,self).__init__()
+
+class Alexnet(nn.Module):
+    def __init__(self, nclass=1000,block_type='convbnrelu', pretrained=False):
+        super(Alexnet,self).__init__()
         self.nclass = nclass
-        self.early_predict = early_predict
-        self.b_thr = b_thr
         self.scale = np.zeros(4, dtype=float)
         self.zero_point = np.zeros(4, dtype=int)
         # if use Qint to compute inference rather than scale * (Q - zero_point) -- float
-        self.quantW = quantW
-        self.quantAct = quantAct
 
         if block_type == 'convbnrelu':
             conv_block = convbnrelu_block 
@@ -55,17 +61,25 @@ class alexnet(nn.Module):
             nn.Linear(4096, nclass),
         )
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                #nn.init.normal_(m.weight)
-                #nn.init.constant_(m.bias,0)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-                #nn.init.constant_(m.weight,1)
-                #nn.init.constant_(m.bias,0)
+        if pretrained is False:
+            print('init conv and bn')
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                    m.weight.data.normal_(0, math.sqrt(2. / n))
+                    #nn.init.normal_(m.weight)
+                    #nn.init.constant_(m.bias,0)
+                elif isinstance(m, nn.BatchNorm2d):
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
+                    #nn.init.constant_(m.weight,1)
+                    #nn.init.constant_(m.bias,0)
+        else:
+            print('init bn')
+            for name, m  in self.named_modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
 
 
 
@@ -108,3 +122,21 @@ class alexnet(nn.Module):
 
         return computation_weight
 
+
+def alexnet(pretrained: bool = False, progress: bool = True,**kwargs) -> Alexnet:
+
+    model = Alexnet(pretrained = pretrained, **kwargs)
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls['alexnet'],
+                                            progress=progress)
+        new_key_dict={"0":"conv0", "3":"conv1",  "6":"conv2", "8": "conv3", "10": "conv4"}
+        for key in list(state_dict.keys()):
+            if 'features' in key and 'weight' in key:
+                #print(state_dict[key][0,0,0,:5])
+                state_dict[new_key_dict[key.split(".")[1]]+".conv.weight"] = state_dict.pop(key)
+        model.load_state_dict(state_dict,strict=False)
+        #for key, params in model.named_parameters():
+        #    if ".conv.weight" in key:
+        #        print(key)
+        #        print(params[0,0,0,:5])
+    return model

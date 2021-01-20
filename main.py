@@ -43,7 +43,6 @@ def test(val_loader, model, epoch, args):
         # apply quantized value to testing stage
         if args.lq:
             LQ.apply(test=True)
-            weightsdistribute(model)
         #if args.lq:
             #LQ.storeW()
             #LQ.apply_quantval()
@@ -59,9 +58,6 @@ def test(val_loader, model, epoch, args):
                 output,_ = model(images,epoch)
             else:
                 output = model(images)
-            if i== 0:
-                print('input',images[0,0,0,:5])
-                print('output', output[:5])
             loss = criterion(output, target)
 
             # measure accuracy and record loss
@@ -303,7 +299,8 @@ if __name__=='__main__':
         bestacc = 0
 
     elif args.arch == 'alexnet':
-        model = modelarchs.alexnet(block_type=args.block_type)
+        pretrained = True
+        model = modelarchs.alexnet(pretrained = pretrained, block_type=args.block_type)
         #model = torchvision.models.alexnet(pretrained = False)
 
     elif args.arch == 'all_cnn_net':
@@ -349,7 +346,7 @@ if __name__=='__main__':
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
         #if args.lq:
-        weightsdistribute(model)
+        #weightsdistribute(model)
             #weight_mean(model,args.arch)
         exit()
 
