@@ -274,7 +274,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,#256,
                                               shuffle=True, num_workers=16)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
@@ -284,18 +284,18 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=256,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=128,#256,
                                              shuffle=False, num_workers=16)
 
 
     if args.arch == 'resnet20':
-        model = modelarchs.resnet20(nclass=nclass,ds=args.ds)
+        model = modelarchs.resnet20(nclass=nclass)
         
 
     elif args.arch == 'resnet18':
         #pretrained = False if args.pretrained is not None else True
         pretrained = True
-        model = torchvision.models.resnet18(pretrained = pretrained)
+        model = modelarchs.resnet18(pretrained = pretrained)
         bestacc = 0
 
     elif args.arch == 'alexnet':
