@@ -58,6 +58,27 @@ class BasicBlock(nn.Module):
 
         return out
 
+class _make_layer(nn.Module):
+    def __init__(self, block, inplanes, planes, blocks, stride =1, early_predict=0):
+        super(_make_layer,self).__init__()
+        self.inplanes=inplanes
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            #print("downsample, stride = ",stride)
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * block.expansion, stride),
+                nn.BatchNorm2d(planes * block.expansion)
+            )
+        self.layers = nn.ModuleList()
+        self.layers.append(block(self.inplanes,planes,stride,downsample))
+        self.inplanes = planes * block.expansion
+        for _ in range(1, blocks):
+            self.layers.append(block(self.inplanes, planes))
+
+    def forward(self, x):
+        for i in range(len(self.layers)):
+            x = self.layers[i](x)
+        return x
 
 class ResNet(nn.Module):
     def __init__(self, block, layers, nclass=1000, zero_init_residual=False):
@@ -71,10 +92,10 @@ class ResNet(nn.Module):
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(block,64,layers[0],stride=1)
-        self.layer2 = self._make_layer(block,128,layers[1],stride=2)
-        self.layer3 = self._make_layer(block,256,layers[2],stride=2)
-        self.layer4 = self._make_layer(block,512,layers[3],stride=2)
+        self.layer1 = _make_layer(block,64,64,layers[0],stride=1)
+        self.layer2 = _make_layer(block,64,128,layers[1],stride=2)
+        self.layer3 = _make_layer(block,128,256,layers[2],stride=2)
+        self.layer4 = _make_layer(block,256,512,layers[3],stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(512* block.expansion, nclass)
@@ -96,7 +117,7 @@ class ResNet(nn.Module):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
 
-
+    '''
     def _make_layer(self, block, planes, blocks, stride =1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
@@ -112,10 +133,12 @@ class ResNet(nn.Module):
             layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
-    
+    '''
+
     def forward(self,x):
 
         x,_ = self.layer0(x)
+        x = self.maxpool(x)
 
         x = self.layer1(x)
         x = self.layer2(x)
@@ -155,7 +178,14 @@ def resnet18(pretrained: bool = False, progress: bool = True, **kwargs):
             elif "layer" in split_keys[0]:
                 if split_keys[2] in new_key_dict2.keys():
                     new_key = key.replace(split_keys[2], new_key_dict2[split_keys[2]])
+                    new_key_split = new_key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
                     state_dict[new_key] = state_dict.pop(key)
+                elif "downsample" in split_keys:
+                    new_key_split = key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+
 
         model.load_state_dict(state_dict)
 
