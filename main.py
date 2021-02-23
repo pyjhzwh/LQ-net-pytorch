@@ -55,7 +55,7 @@ def test(val_loader, model, epoch, args):
 
             # compute output
             if args.arch == 'all_cnn_net':
-                output,_ = model(images,epoch)
+                output = model(images,epoch)
             else:
                 output = model(images)
             loss = criterion(output, target)
@@ -112,7 +112,7 @@ def train(train_loader,optimizer, model, epoch, args):
 
         # compute output
         if args.arch == 'all_cnn_net':
-            output,_ = model(images,epoch)
+            output = model(images,epoch)
         else:
             output = model(images)
         loss = criterion(output, target)
@@ -274,7 +274,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,#256,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,#256,
                                               shuffle=True, num_workers=16)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
@@ -284,7 +284,7 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=128,#256,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=64,#256,
                                              shuffle=False, num_workers=16)
 
 
@@ -309,6 +309,21 @@ if __name__=='__main__':
     elif args.arch == 'squeezenet':
         model = torchvision.models.squeezenet1_1(pretrained=True, progress=True)
 
+    elif args.arch == 'vgg11':
+        pretrained = True
+        model = modelarchs.vgg11_bn(pretrained = pretrained)
+
+    elif args.arch == 'vgg13':
+        pretrained = True
+        model = modelarchs.vgg13_bn(pretrained = pretrained)
+
+    elif args.arch == 'vgg16':
+        pretrained = True
+        model = modelarchs.vgg16_bn(pretrained = pretrained)
+
+    elif args.arch == 'vgg19':
+        pretrained = True
+        model = modelarchs.vgg19_bn(pretrained = pretrained)
     else:
         raise ValueError("Unsupported arch {}".format(args.arch))
 
@@ -346,7 +361,7 @@ if __name__=='__main__':
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
         #if args.lq:
-        #weightsdistribute(model)
+        weightsdistribute(model)
             #weight_mean(model,args.arch)
         exit()
 

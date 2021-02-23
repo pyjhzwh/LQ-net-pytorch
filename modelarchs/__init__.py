@@ -3,5 +3,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from .resnet import *
 from .all_cnn_net import *
 from .alexnet import *
+from .vggnet import *
 #from .all_cnn_c import * 
 #from modelarchs import *

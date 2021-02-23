@@ -14,6 +14,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from ._conv_block import *
+from ._fc_block import *
 import itertools
 try:
     from torch.hub import load_state_dict_from_url
@@ -51,6 +52,13 @@ class Alexnet(nn.Module):
         self.pool4 = nn.MaxPool2d(kernel_size=3, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
+
+        self.dropout0 = nn.Dropout()
+        self.fc5 = fc_block(256 * 6 * 6, 4096)
+        self.dropout1 = nn.Dropout()
+        self.fc6 = fc_block(4096, 4096)
+        self.fc7 = nn.Linear(4096, nclass)
+        '''
         self.classifier = nn.Sequential(
             nn.Dropout(),
             nn.Linear(256 * 6 * 6, 4096),
@@ -60,6 +68,7 @@ class Alexnet(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(4096, nclass),
         )
+        '''
 
         if pretrained is False:
             print('init conv and bn')
@@ -86,41 +95,28 @@ class Alexnet(nn.Module):
     def forward(self,x):
 
         computation = torch.zeros(4, dtype=torch.float).cuda()
-        x,_ = self.conv0(x)
+        x = self.conv0(x)
         x = self.pool0(x)
-        x,computation[0] = self.conv1(x) 
+        x = self.conv1(x) 
         x = self.pool1(x)
-        x,computation[1] = self.conv2(x)
-        x,computation[2] = self.conv3(x)
-        x,computation[3] = self.conv4(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
         x = self.pool4(x)
 
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = self.classifier(x)
+
+        x = self.dropout0(x)
+        x = self.fc5(x)
+        x = self.dropout1(x)
+        x = self.fc6(x)
+        x = self.fc7(x)
+        #x = self.classifier(x)
 
         return x
     
-    def layer_computation_weight(self,x):
-
-        computation_weight = torch.zeros(4, dtype=torch.float).cuda()
-        x,_ = self.conv0(x)
-        x = self.pool0(x)
-        x,_ = self.conv1(x)
-        computation_weight[0] = (self.conv1.conv.weight.data.shape[1] * self.conv1.conv.weight.data.shape[2] * self.conv1.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        x = self.pool1(x)
-        x,_ = self.conv2(x)
-        computation_weight[1] = (self.conv2.conv.weight.data.shape[1] * self.conv2.conv.weight.data.shape[2] * self.conv2.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-
-        x,_ = self.conv3(x)
-        computation_weight[2] = (self.conv3.conv.weight.data.shape[1] * self.conv3.conv.weight.data.shape[2] * self.conv3.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        x,_ = self.conv4(x)
-        computation_weight[3] = (self.conv4.conv.weight.data.shape[1] * self.conv4.conv.weight.data.shape[2] * self.conv4.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-
-
-
-        return computation_weight
 
 
 def alexnet(pretrained: bool = False, progress: bool = True,**kwargs) -> Alexnet:
@@ -130,10 +126,16 @@ def alexnet(pretrained: bool = False, progress: bool = True,**kwargs) -> Alexnet
         state_dict = load_state_dict_from_url(model_urls['alexnet'],
                                             progress=progress)
         new_key_dict={"0":"conv0", "3":"conv1",  "6":"conv2", "8": "conv3", "10": "conv4"}
+        fc_new_key_dict = {"1": "fc5", "4": "fc6", "6": "fc7"}
         for key in list(state_dict.keys()):
             if 'features' in key and 'weight' in key:
                 #print(state_dict[key][0,0,0,:5])
                 state_dict[new_key_dict[key.split(".")[1]]+".conv.weight"] = state_dict.pop(key)
+            if 'classifier' in key:
+                if key.split(".")[1] is not "6":
+                    state_dict[fc_new_key_dict[key.split(".")[1]]+".fc."+key.split(".")[2]] = state_dict.pop(key)
+                else:
+                    state_dict[fc_new_key_dict[key.split(".")[1]]+"."+key.split(".")[2]] = state_dict.pop(key)
         model.load_state_dict(state_dict,strict=False)
         #for key, params in model.named_parameters():
         #    if ".conv.weight" in key:

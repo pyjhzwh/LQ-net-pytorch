@@ -52,53 +52,25 @@ class all_cnn_net(nn.Module):
 
     def forward(self,x,epoch):
 
-        computation = torch.zeros(7, dtype=torch.float).cuda()
-        x,_ = self.conv0(x,epoch)
-        x,computation[0] = self.conv1(x,epoch)
-        x,computation[1] = self.conv2(x,epoch)
+        x = self.conv0(x,epoch)
+        x = self.conv1(x,epoch)
+        x = self.conv2(x,epoch)
 
         x = self.dropout0(x)
 
-        x,computation[2] = self.conv3(x,epoch)
-        x,computation[3] = self.conv4(x,epoch)
-        x,computation[4] = self.conv5(x,epoch)
+        x = self.conv3(x,epoch)
+        x = self.conv4(x,epoch)
+        x = self.conv5(x,epoch)
 
         x = self.dropout1(x)
 
-        x,computation[5] = self.conv6(x,epoch)
-        x,computation[6] = self.conv7(x,epoch)
-        x,_ = self.conv8(x,epoch)
+        x = self.conv6(x,epoch)
+        x = self.conv7(x,epoch)
+        x = self.conv8(x,epoch)
 
         #x = self.avgpool(x)
         x = F.avg_pool2d(x, kernel_size=x.size(2))
         x = x.view(x.size(0),-1)
         
-        return x, computation
+        return x
     
-    def layer_computation_weight(self,x):
-
-        computation_weight = torch.zeros(7, dtype=torch.float).cuda()
-        x,_ = self.conv0(x)
-        x,_ = self.conv1(x)
-        computation_weight[0] = (self.conv1.conv.weight.data.shape[1] * self.conv1.conv.weight.data.shape[2] * self.conv1.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        x,_ = self.conv2(x)
-        computation_weight[1] = (self.conv2.conv.weight.data.shape[1] * self.conv2.conv.weight.data.shape[2] * self.conv2.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        
-        x = self.dropout0(x)
-
-        x,_ = self.conv3(x)
-        computation_weight[2] = (self.conv3.conv.weight.data.shape[1] * self.conv3.conv.weight.data.shape[2] * self.conv3.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        x,_ = self.conv4(x)
-        computation_weight[3] = (self.conv4.conv.weight.data.shape[1] * self.conv4.conv.weight.data.shape[2] * self.conv4.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        x,_ = self.conv5(x)
-        computation_weight[4] = (self.conv5.conv.weight.data.shape[1] * self.conv5.conv.weight.data.shape[2] * self.conv5.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-
-        x = self.dropout1(x)
-
-        x,_ = self.conv6(x)
-        computation_weight[5] = (self.conv6.conv.weight.data.shape[1] * self.conv6.conv.weight.data.shape[2] * self.conv6.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-        x,_ = self.conv7(x)
-        computation_weight[6] = (self.conv7.conv.weight.data.shape[1] * self.conv7.conv.weight.data.shape[2] * self.conv7.conv.weight.data.shape[3]) **2 * (x.shape[1] * x.shape[2] * x.shape[3])
-
-
-        return computation_weight

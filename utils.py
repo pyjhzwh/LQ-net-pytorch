@@ -49,6 +49,7 @@ def load_state(model, state_dict):
         elif key.replace('module.','') in state_dict_keys:
             cur_state_dict[key].copy_(state_dict[key.replace('module.','')])
         elif 'module.'+key in state_dict_keys:
+            #print(key, state_dict['module.'+key].shape, cur_state_dict[key].shape)
             cur_state_dict[key].copy_(state_dict['module.'+key])
 
     
@@ -139,11 +140,11 @@ def gen_target_weights(model, arch):
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
         target_weights = target_weights[1:-1]
-    elif arch == 'alexnet':
+    elif arch == 'alexnet' or 'vgg' in arch:
         for m in model.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
-        target_weights = target_weights[1:]
+        target_weights = target_weights[1:-1]
 
     else:
         raise Exception ('{} not supported'.format(arch))
@@ -170,7 +171,7 @@ def weight_mean(model,arch):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))
                     print('mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()), 'min',torch.min(m.weight.data)/ torch.min(m.weight.data.abs()), 'max', torch.max(m.weight.data)/ torch.min(m.weight.data.abs()))
                     i = i+1
-    elif arch == 'alexnet':
+    elif arch == 'alexnet' or 'vgg' in arch:
         for m in model.modules():
             if isinstance(m, nn.Conv2d):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))

@@ -50,9 +50,9 @@ class BasicBlock(nn.Module):
             residual = self.downsample(x)
         #print('residual size:',residual.size())
 
-        out,_ = self.conv1(x)
+        out = self.conv1(x)
         # relu(bn(conv(out)) + residual)
-        out,_ = self.conv2(out, residual)
+        out = self.conv2(out, residual)
         #print('out size:',out.size())
         #out += residual
 
@@ -137,7 +137,7 @@ class ResNet(nn.Module):
 
     def forward(self,x):
 
-        x,_ = self.layer0(x)
+        x = self.layer0(x)
         x = self.maxpool(x)
 
         x = self.layer1(x)

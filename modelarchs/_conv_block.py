@@ -49,13 +49,12 @@ class convbnrelu_block(nn.Module):
         self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x,epoch=0):
-        computation = 0
 
         #if self.early_predict == 0:
             #if epoch <= 250:
             #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
             #else:
-        return (self.relu(self.bn(self.conv(x)))), computation
+        return (self.relu(self.bn(self.conv(x))))
 
 class convrelubn_block(nn.Module):
 
@@ -77,9 +76,8 @@ class convrelubn_block(nn.Module):
         self.bn = nn.BatchNorm2d(self.out_planes)
     
     def forward(self, x,epoch=0):
-        computation = 0
 
-        return(self.bn(self.relu(self.conv(x)))), computation
+        return(self.bn(self.relu(self.conv(x))))
 
 class convbnrelu_block(nn.Module):
 
@@ -106,13 +104,12 @@ class convbnrelu_block(nn.Module):
         self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x,epoch=0):
-        computation = 0
 
         #if self.early_predict == 0:
             #if epoch <= 250:
             #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
             #else:
-        return (self.relu(self.bn(self.conv(x)))), computation
+        return (self.relu(self.bn(self.conv(x))))
 
 class convbnresrelu_block(nn.Module):
 
@@ -139,10 +136,9 @@ class convbnresrelu_block(nn.Module):
         self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x, identity, epoch=0):
-        computation = 0
 
         #if self.early_predict == 0:
             #if epoch <= 250:
             #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
             #else:
-        return (self.relu(identity + self.bn(self.conv(x)))), computation
+        return (self.relu(identity + self.bn(self.conv(x))))
