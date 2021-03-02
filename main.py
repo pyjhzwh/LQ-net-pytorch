@@ -308,6 +308,9 @@ if __name__=='__main__':
 
     elif args.arch == 'squeezenet':
         model = torchvision.models.squeezenet1_1(pretrained=True, progress=True)
+    
+    elif args.arch == 'googlenet':
+        model = modelarchs.googlenet(pretrained=True, progress=True)
 
     elif args.arch == 'vgg11':
         pretrained = True
