@@ -307,7 +307,7 @@ if __name__=='__main__':
         model = modelarchs.all_cnn_net(block_type=args.block_type)
 
     elif args.arch == 'squeezenet':
-        model = torchvision.models.squeezenet1_1(pretrained=True, progress=True)
+        model = modelarchs.squeezenet1_1(pretrained=True, progress=True)
     
     elif args.arch == 'googlenet':
         model = modelarchs.googlenet(pretrained=True, progress=True)
@@ -364,7 +364,7 @@ if __name__=='__main__':
     if args.evaluate:
         test(testloader, model, args.start_epoch, args)
         #if args.lq:
-        weightsdistribute(model)
+            #weightsdistribute(model)
             #weight_mean(model,args.arch)
         exit()
 

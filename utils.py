@@ -140,7 +140,7 @@ def gen_target_weights(model, arch):
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
         target_weights = target_weights[1:-1]
-    elif arch == 'alexnet' or 'vgg' in arch or arch == 'googlenet':
+    elif arch == 'alexnet' or 'vgg' in arch or arch == 'googlenet' or arch == 'squeezenet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
@@ -171,7 +171,7 @@ def weight_mean(model,arch):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))
                     print('mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()), 'min',torch.min(m.weight.data)/ torch.min(m.weight.data.abs()), 'max', torch.max(m.weight.data)/ torch.min(m.weight.data.abs()))
                     i = i+1
-    elif arch == 'alexnet' or 'vgg' in arch or arch == 'googlenet':
+    elif arch == 'alexnet' or 'vgg' in arch or arch == 'googlenet' or arch == 'squeezenet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))

@@ -1,17 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as init
+try:
+    from torch.hub import load_state_dict_from_url
+except ImportError:
+    from torch.utils.model_zoo import load_url as load_state_dict_from_url
+
+from typing import Any
+from ._conv_block import *
 
 __all__ = ['SqueezeNet', 'squeezenet1_0', 'squeezenet1_1']
 
+model_urls = {
+    'squeezenet1_0': 'https://download.pytorch.org/models/squeezenet1_0-a815701f.pth',
+    'squeezenet1_1': 'https://download.pytorch.org/models/squeezenet1_1-f364aa15.pth',
+}
 
 
 class Fire(nn.Module):
 
-    def __init__(self, inplanes, squeeze_planes,
-                 expand1x1_planes, expand3x3_planes):
+    def __init__(
+        self,
+        inplanes: int,
+        squeeze_planes: int,
+        expand1x1_planes: int,
+        expand3x3_planes: int
+    ) -> None:
         super(Fire, self).__init__()
         self.inplanes = inplanes
+        '''
         self.squeeze = nn.Conv2d(inplanes, squeeze_planes, kernel_size=1)
         self.squeeze_activation = nn.ReLU(inplace=True)
         self.expand1x1 = nn.Conv2d(squeeze_planes, expand1x1_planes,
@@ -20,18 +37,29 @@ class Fire(nn.Module):
         self.expand3x3 = nn.Conv2d(squeeze_planes, expand3x3_planes,
                                    kernel_size=3, padding=1)
         self.expand3x3_activation = nn.ReLU(inplace=True)
+        '''
+        self.squeeze = convbnrelu_block(inplanes, squeeze_planes, 
+                                    kernel_size=1, usebn=False)
+        self.expand1x1 = convbnrelu_block(squeeze_planes, expand1x1_planes,
+                                   kernel_size=1, usebn=False)
+        self.expand3x3 = convbnrelu_block(squeeze_planes, expand3x3_planes,
+                                   kernel_size=3, padding=1, usebn=False)
 
-    def forward(self, x):
-        x = self.squeeze_activation(self.squeeze(x))
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.squeeze(x)
         return torch.cat([
-            self.expand1x1_activation(self.expand1x1(x)),
-            self.expand3x3_activation(self.expand3x3(x))
+            self.expand1x1(x),
+            self.expand3x3(x)
         ], 1)
 
 
 class SqueezeNet(nn.Module):
 
-    def __init__(self, version='1_0', num_classes=1000):
+    def __init__(
+        self,
+        version: str = '1_0',
+        num_classes: int = 1000
+    ) -> None:
         super(SqueezeNet, self).__init__()
         self.num_classes = num_classes
         if version == '1_0':
@@ -91,26 +119,33 @@ class SqueezeNet(nn.Module):
                 if m.bias is not None:
                     init.constant_(m.bias, 0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
         x = self.classifier(x)
         return torch.flatten(x, 1)
 
 
-def _squeezenet(version, pretrained, progress, **kwargs):
+def _squeezenet(version: str, pretrained: bool, progress: bool, **kwargs: Any) -> SqueezeNet:
     model = SqueezeNet(version, **kwargs)
     if pretrained:
         arch = 'squeezenet' + version
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
+        for key in list(state_dict.keys()):
+            if 'features' in key and ('squeeze' in key or 'expand' in key):
+                split_key = key.split(".")
+                new_key = split_key[0]+"." + split_key[1]+"."+split_key[2]+".conv."+split_key[3]
+                state_dict[new_key] = state_dict.pop(key)
+
         model.load_state_dict(state_dict)
     return model
 
 
-def squeezenet1_0(pretrained=False, progress=True, **kwargs):
+def squeezenet1_0(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> SqueezeNet:
     r"""SqueezeNet model architecture from the `"SqueezeNet: AlexNet-level
     accuracy with 50x fewer parameters and <0.5MB model size"
     <https://arxiv.org/abs/1602.07360>`_ paper.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
@@ -118,11 +153,12 @@ def squeezenet1_0(pretrained=False, progress=True, **kwargs):
     return _squeezenet('1_0', pretrained, progress, **kwargs)
 
 
-def squeezenet1_1(pretrained=False, progress=True, **kwargs):
+def squeezenet1_1(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> SqueezeNet:
     r"""SqueezeNet 1.1 model from the `official SqueezeNet repo
     <https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1>`_.
     SqueezeNet 1.1 has 2.4x less computation and slightly fewer parameters
     than SqueezeNet 1.0, without sacrificing accuracy.
+
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
