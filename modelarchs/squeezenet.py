@@ -53,11 +53,12 @@ class Fire(nn.Module):
         ], 1)
 
 
+
 class SqueezeNet(nn.Module):
 
     def __init__(
         self,
-        version: str = '1_0',
+        version: str = '1_1',
         num_classes: int = 1000
     ) -> None:
         super(SqueezeNet, self).__init__()
@@ -79,6 +80,20 @@ class SqueezeNet(nn.Module):
                 Fire(512, 64, 256, 256),
             )
         elif version == '1_1':
+            self.conv0 = nn.Conv2d(3, 64, kernel_size=3, stride=2)
+            self.relu0 = nn.ReLU(inplace=True)
+            self.pool0 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
+            self.fire1 = Fire(64, 16, 64, 64)
+            self.fire2 = Fire(128, 16, 64, 64)
+            self.pool2 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
+            self.fire3 = Fire(128, 32, 128, 128)
+            self.fire4 = Fire(256, 32, 128, 128)
+            self.pool4 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
+            self.fire5 = Fire(256, 48, 192, 192)
+            self.fire6 = Fire(384, 48, 192, 192)
+            self.fire7 = Fire(384, 64, 256, 256)
+            self.fire8 = Fire(512, 64, 256, 256)
+            '''
             self.features = nn.Sequential(
                 nn.Conv2d(3, 64, kernel_size=3, stride=2),
                 nn.ReLU(inplace=True),
@@ -94,6 +109,7 @@ class SqueezeNet(nn.Module):
                 Fire(384, 64, 256, 256),
                 Fire(512, 64, 256, 256),
             )
+            '''
         else:
             # FIXME: Is this needed? SqueezeNet should only be called from the
             # FIXME: squeezenet1_x() functions
@@ -119,11 +135,29 @@ class SqueezeNet(nn.Module):
                 if m.bias is not None:
                     init.constant_(m.bias, 0)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features(x)
+    def forward(self, x: torch.Tensor):
+        #x = self.features(x)
+
+        x = self.conv0(x)
+        x = self.relu0(x)
+        x = self.pool0(x)
+
+        x = self.fire1(x)
+        x = self.fire2(x)
+        x = self.pool2(x)
+
+        x = self.fire3(x)
+        x = self.fire4(x)
+        x = self.pool4(x)
+
+        x = self.fire5(x)
+        x = self.fire6(x)
+        x = self.fire7(x)
+        x = self.fire8(x)
+
+        
         x = self.classifier(x)
         return torch.flatten(x, 1)
-
 
 def _squeezenet(version: str, pretrained: bool, progress: bool, **kwargs: Any) -> SqueezeNet:
     model = SqueezeNet(version, **kwargs)
@@ -131,11 +165,17 @@ def _squeezenet(version: str, pretrained: bool, progress: bool, **kwargs: Any) -
         arch = 'squeezenet' + version
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
+        new_key_dict={"0":"conv0", "3":"fire1", "4":"fire2", "6":"fire3",
+            "7":"fire4", "9":"fire5", "10":"fire6", "11":"fire7", "12":"fire8"}
         for key in list(state_dict.keys()):
-            if 'features' in key and ('squeeze' in key or 'expand' in key):
+            if 'features' in key:
                 split_key = key.split(".")
-                new_key = split_key[0]+"." + split_key[1]+"."+split_key[2]+".conv."+split_key[3]
-                state_dict[new_key] = state_dict.pop(key)
+                if ('squeeze' in key or 'expand' in key):
+                    new_key = new_key_dict[split_key[1]]+"."+split_key[2]+".conv."+split_key[3]
+                    state_dict[new_key] = state_dict.pop(key)
+                elif split_key[1] == '0':
+                    state_dict["conv0."+split_key[2]] = state_dict.pop(key)
+
 
         model.load_state_dict(state_dict)
     return model
