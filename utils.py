@@ -129,13 +129,13 @@ def weightsdistribute(model):
 
 def gen_target_weights(model, arch):
     target_weights = []
-    if arch == 'resnet18' or arch == 'resnet20':
+    if arch == 'resnet18':
         for m in model.modules():
             if isinstance(m, nn.Conv2d):
                 if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
                     target_weights.append(m.weight)
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet' or arch == 'resnet20':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
@@ -157,7 +157,7 @@ def gen_target_weights(model, arch):
 
 def weight_mean(model,arch):
     i=0
-    if arch == 'resnet18' or arch == 'resnet20':
+    if arch == 'resnet18':
         for m in model.modules():
             if isinstance(m, nn.Conv2d):
                 if (m.weight.data.shape[1] > 3) and (m.weight.data.shape[2] > 1):
@@ -165,7 +165,7 @@ def weight_mean(model,arch):
                     i = i+1
                     
 
-    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet':
+    elif arch == 'all_cnn_c' or arch == 'all_cnn_net' or arch == 'squeezenet' or arch == 'resnet20':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                     print(i,'th layer mean',torch.mean(m.weight.data)/torch.min(m.weight.data.abs()))

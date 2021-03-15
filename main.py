@@ -242,7 +242,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
                                               shuffle=True, num_workers=16)
 
         testset = torchvision.datasets.CIFAR10(root='./data', train=False,
@@ -252,7 +252,7 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=64,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=256,
                                              shuffle=False, num_workers=16)
 
 
@@ -274,7 +274,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,#256,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
                                               shuffle=True, num_workers=16)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
@@ -284,7 +284,7 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=64,#256,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=256,
                                              shuffle=False, num_workers=16)
 
 
@@ -296,6 +296,12 @@ if __name__=='__main__':
         #pretrained = False if args.pretrained is not None else True
         pretrained = True
         model = modelarchs.resnet18(pretrained = pretrained)
+        bestacc = 0
+    
+    elif args.arch == 'resnet20':
+        #pretrained = False if args.pretrained is not None else True
+        pretrained = True
+        model = modelarchs.resnet20(pretrained = pretrained)
         bestacc = 0
 
     elif args.arch == 'alexnet':
@@ -341,6 +347,9 @@ if __name__=='__main__':
         bestacc = 0#pretrained_model['acc']
         args.start_epoch = pretrained_model['epoch']
         load_state(model, pretrained_model['state_dict'])
+        if 'quant_info' in pretrained_model:
+            quantInfo = pretrained_model['quant_info']
+            print('quant_info', quantInfo)
         #optimizer.load_state_dict(pretrained_model['optimizer'])
 
     if args.cuda:
@@ -350,7 +359,11 @@ if __name__=='__main__':
         #model = nn.DataParallel(model, device_ids=args.gpu)
 
     print(model)
-
+    '''
+    for name, param in model.named_parameters():
+        if param.requires_grad and 'conv2' in name:
+            print(name, param.data[0])
+    '''
     if args.lq:
         target_weights = gen_target_weights(model, args.arch)
         if len(args.bits) == 0:

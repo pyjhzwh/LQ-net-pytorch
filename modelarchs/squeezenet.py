@@ -39,14 +39,16 @@ class Fire(nn.Module):
         self.expand3x3_activation = nn.ReLU(inplace=True)
         '''
         self.squeeze = convbnrelu_block(inplanes, squeeze_planes, 
-                                    kernel_size=1, usebn=False)
+                                    kernel_size=1)
         self.expand1x1 = convbnrelu_block(squeeze_planes, expand1x1_planes,
-                                   kernel_size=1, usebn=False)
+                                   kernel_size=1)
         self.expand3x3 = convbnrelu_block(squeeze_planes, expand3x3_planes,
-                                   kernel_size=3, padding=1, usebn=False)
+                                   kernel_size=3, padding=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+
         x = self.squeeze(x)
+
         return torch.cat([
             self.expand1x1(x),
             self.expand3x3(x)
@@ -134,6 +136,9 @@ class SqueezeNet(nn.Module):
                     init.kaiming_uniform_(m.weight)
                 if m.bias is not None:
                     init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     def forward(self, x: torch.Tensor):
         #x = self.features(x)
@@ -141,7 +146,7 @@ class SqueezeNet(nn.Module):
         x = self.conv0(x)
         x = self.relu0(x)
         x = self.pool0(x)
-
+        
         x = self.fire1(x)
         x = self.fire2(x)
         x = self.pool2(x)
@@ -171,13 +176,17 @@ def _squeezenet(version: str, pretrained: bool, progress: bool, **kwargs: Any) -
             if 'features' in key:
                 split_key = key.split(".")
                 if ('squeeze' in key or 'expand' in key):
-                    new_key = new_key_dict[split_key[1]]+"."+split_key[2]+".conv."+split_key[3]
-                    state_dict[new_key] = state_dict.pop(key)
+                    if 'bias' not in key:
+                        new_key = new_key_dict[split_key[1]]+"."+split_key[2]+".conv."+split_key[3]
+                        state_dict[new_key] = state_dict.pop(key)
+                    else:
+                        new_key = new_key_dict[split_key[1]]+"."+split_key[2]+".bn."+split_key[3]
+                        state_dict[new_key] = state_dict.pop(key)
                 elif split_key[1] == '0':
                     state_dict["conv0."+split_key[2]] = state_dict.pop(key)
 
 
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict,strict=False)
     return model
 
 

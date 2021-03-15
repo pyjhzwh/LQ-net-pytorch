@@ -65,7 +65,6 @@ def googlenet(pretrained: bool = False, progress: bool = True, **kwargs: Any) ->
             model.aux1 = None  # type: ignore[assignment]
             model.aux2 = None  # type: ignore[assignment]
         return model
-
     return GoogLeNet(**kwargs)
 
 
@@ -87,7 +86,7 @@ class GoogLeNet(nn.Module):
             warnings.warn('The default weight initialization of GoogleNet will be changed in future releases of '
                           'torchvision. If you wish to keep the old behavior (which leads to long initialization times'
                           ' due to scipy/scipy#11299), please set init_weights=True.', FutureWarning)
-            init_weights = True
+            init_weights = False#True
         assert len(blocks) == 3
         conv_block = blocks[0]
         inception_block = blocks[1]
