@@ -24,7 +24,7 @@ import modelarchs
 import lqnet
 
 
-def test(val_loader, model, epoch, args):
+def test(val_loader, model, epoch, args, stats=None):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
@@ -54,10 +54,7 @@ def test(val_loader, model, epoch, args):
             images, target = Variable(images.cuda()), Variable(target.cuda())
 
             # compute output
-            if args.arch == 'all_cnn_net':
-                output = model(images,epoch)
-            else:
-                output = model(images)
+            output = model(images,stats)
             loss = criterion(output, target)
 
             # measure accuracy and record loss
@@ -85,7 +82,7 @@ def test(val_loader, model, epoch, args):
     return top1.avg
 
 
-def train(train_loader,optimizer, model, epoch, args):
+def train(train_loader,optimizer, model, epoch, args, stats=None):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -111,10 +108,8 @@ def train(train_loader,optimizer, model, epoch, args):
             LQ.apply()
 
         # compute output
-        if args.arch == 'all_cnn_net':
-            output = model(images,epoch)
-        else:
-            output = model(images)
+        output= model(images, stats)
+        #rint('stats',stats)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -154,6 +149,7 @@ def train(train_loader,optimizer, model, epoch, args):
         #if epoch == args.epochs -1:
         #    print('store quantized weights')
         #    LQ.storequntW()
+        model.print_Actinfo()
 
     return
 
@@ -214,6 +210,8 @@ if __name__=='__main__':
             help = 'use bias in quantized value or not',action='store_true')
     parser.add_argument('--block_type', action='store', default='convbnrelu',
             help='convbnrelu or convrelubn')
+    parser.add_argument('--quantAct', default=False, 
+            help = 'quant activations or not',action='store_true')
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -310,10 +308,12 @@ if __name__=='__main__':
         #model = torchvision.models.alexnet(pretrained = False)
 
     elif args.arch == 'all_cnn_net':
-        model = modelarchs.all_cnn_net(block_type=args.block_type)
+        model = modelarchs.all_cnn_net(block_type=args.block_type, quantAct=args.quantAct,
+            bits = [args.bits[0]]*7)
 
     elif args.arch == 'squeezenet':
-        model = modelarchs.squeezenet1_1(pretrained=True, progress=True)
+        model = modelarchs.squeezenet1_1(pretrained=True, progress=True, quantAct=args.quantAct,
+            bits = args.bits[0])
     
     elif args.arch == 'googlenet':
         model = modelarchs.googlenet(pretrained=True, progress=True)
@@ -350,12 +350,15 @@ if __name__=='__main__':
         if 'quant_info' in pretrained_model:
             quantInfo = pretrained_model['quant_info']
             print('quant_info', quantInfo)
+        if 'quant_Actinfo' in pretrained_model:
+            quantActinfo = pretrained_model['quant_Actinfo']
+            print('quant_Actinfo', quantActinfo)
         #optimizer.load_state_dict(pretrained_model['optimizer'])
 
     if args.cuda:
         model.cuda()
-        model = nn.DataParallel(model, 
-                    device_ids=range(torch.cuda.device_count()))
+        #model = nn.DataParallel(model, 
+        #            device_ids=range(torch.cuda.device_count()))
         #model = nn.DataParallel(model, device_ids=args.gpu)
 
     print(model)
@@ -383,13 +386,13 @@ if __name__=='__main__':
 
 
     ''' train model '''
-
+    quantActdict={}
     
     for epoch in range(0,args.epochs):
         running_loss = 0.0
         adjust_learning_rate(optimizer, epoch, args)
-        train(trainloader,optimizer, model, epoch, args)
-        acc = test(testloader, model, epoch, args)
+        train(trainloader,optimizer, model, epoch, args, quantActdict)
+        acc = test(testloader, model, epoch, args, quantActdict)
         quantdict=None
         if args.lq:
             quantdict = LQ.save_quantinfo()
@@ -398,9 +401,9 @@ if __name__=='__main__':
             LQ.apply(test=True)
         if (acc > bestacc):
             bestacc = acc
-            save_state(model,acc,epoch,args, optimizer, True, quantdict)
+            save_state(model,acc,epoch,args, optimizer, True, quantdict,quantActdict)
         else:
-            save_state(model,bestacc,epoch,args,optimizer, False, quantdict)
+            save_state(model,bestacc,epoch,args,optimizer, False, quantdict,quantActdict)
         if args.lq:
             LQ.restoreW()
         print('best acc so far:{:4.2f}'.format(bestacc))

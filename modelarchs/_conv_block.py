@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
+from lqnet import lq_act
 
 '''
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
@@ -27,7 +28,8 @@ def downsample(data, outsize=28):
 class convbnrelu_block(nn.Module):
 
     def __init__(self, in_planes, out_planes, kernel_size=1, padding=0,
-            stride = 1, relu = True, usebn= True, early_predict=0, bn_adjust=0):
+            stride = 1, relu = True, usebn= True, early_predict=0, bn_adjust=0,
+            quantAct=False, bits=8, key=''):
         super(convbnrelu_block, self).__init__()
         self.in_planes = in_planes
         self.out_planes = out_planes
@@ -45,7 +47,11 @@ class convbnrelu_block(nn.Module):
             useconvbias = False
         else:
             useconvbias = True
+        self.quantAct = quantAct
+        self.bits=bits
 
+        if self.quantAct:
+            self.lqAct = lq_act(key, self.bits)
         self.conv = nn.Conv2d(self.in_planes, self.out_planes, self.kernel_size,
                 padding=self.padding, stride=self.stride, bias = useconvbias)
         
@@ -54,16 +60,19 @@ class convbnrelu_block(nn.Module):
 
         self.relu = nn.ReLU(inplace=True)
     
-    def forward(self, x,epoch=0):
+    def forward(self, x, stats=None):
 
         #if self.early_predict == 0:
             #if epoch <= 250:
             #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
             #else:
+        if self.quantAct and stats is not None:
+            self.lqAct.update(x, stats, test=not self.training)
         if self.usebn is True:
             return (self.relu(self.bn(self.conv(x))))
         else:
             return self.relu(self.conv(x))
+    
 
 class convrelubn_block(nn.Module):
 

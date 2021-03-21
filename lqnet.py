@@ -162,4 +162,75 @@ class learned_quant():
 
         return quant_info
     
+
+
+'''
+LQ-net for quantizating activations
+'''
+class lq_act():
+
+    def __init__(self, key, b, moving_aver=0.9):
+        super(lq_act, self).__init__()
+
+        self.b = b
+        self.moving_aver=moving_aver
+        self.key = key
+        self.mean = 0
+        self.err = 0
+        self.prevx = None
+
+    '''
+    def storex(self, x):
+        self.prevx.copy_(x.data)
+    
+    def restorex(self):
+        return self.prevx
+
+    def apply(self, x, stats, test=False):
+        self.prevx.copy_(x.data)
+        self.update(x, stats, test=test)
+        x.data.copy_(self.qx)
+    '''
+
+    def update(self, x, stats, test=False):
+
+        with torch.no_grad():
         
+            if self.key not in stats:
+                # init 
+                self.v = torch.max(x.data) / (2**self.b-1)
+                self.B = x.data.clone().zero_()
+                self.xmean = torch.mean(x)
+                stats[self.key] = {"v": self.v,  "bias":self.xmean}
+
+                qx = self.B * self.v + self.xmean
+
+            else:
+                self.B = (x.data - self.xmean) / self.v 
+                self.B = torch.round((self.B-1)/2)*2+1
+                self.B = torch.clamp(self.B, -(pow(2,self.b)-1), pow(2,self.b)-1)
+
+                vi = torch.sum(torch.mul(self.B,(x.data - self.xmean)) / torch.sum(torch.mul(self.B,self.B)))
+                # update v with moving average
+                if not test:
+                    self.v = self.v * self.moving_aver + vi * (1-self.moving_aver)
+
+                qx = self.B * self.v + self.xmean
+                # update xmean
+                self.xmean = torch.mean(x.data)
+                # update stats
+                stats[self.key] = {"v": self.v, "bias": self.xmean}
+
+            if not test:
+                self.err = self.err + torch.norm(x - qx) * self.moving_aver
+
+
+        return qx
+
+    def print_info(self):
+        print('\n' + '-' * 30)
+        print('layer ', self.key)
+        print('v val:', self.v)
+        print('bias val:',self.xmean)
+        print('quant err norm:', self.err)
+

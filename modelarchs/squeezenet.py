@@ -24,7 +24,10 @@ class Fire(nn.Module):
         inplanes: int,
         squeeze_planes: int,
         expand1x1_planes: int,
-        expand3x3_planes: int
+        expand3x3_planes: int,
+        quantAct=False,
+        bits=None,
+        key=''
     ) -> None:
         super(Fire, self).__init__()
         self.inplanes = inplanes
@@ -39,19 +42,22 @@ class Fire(nn.Module):
         self.expand3x3_activation = nn.ReLU(inplace=True)
         '''
         self.squeeze = convbnrelu_block(inplanes, squeeze_planes, 
-                                    kernel_size=1)
+                                    kernel_size=1, usebn=False,
+                                    quantAct=quantAct, bits=bits,key=key)
         self.expand1x1 = convbnrelu_block(squeeze_planes, expand1x1_planes,
-                                   kernel_size=1)
+                                   kernel_size=1, usebn=False,
+                                    quantAct=quantAct, bits=bits,key=key+1)
         self.expand3x3 = convbnrelu_block(squeeze_planes, expand3x3_planes,
-                                   kernel_size=3, padding=1)
+                                   kernel_size=3, padding=1, usebn=False,
+                                    quantAct=quantAct, bits=bits,key=key+2)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, stats=None) -> torch.Tensor:
 
-        x = self.squeeze(x)
+        x = self.squeeze(x, stats)
 
         return torch.cat([
-            self.expand1x1(x),
-            self.expand3x3(x)
+            self.expand1x1(x, stats),
+            self.expand3x3(x, stats)
         ], 1)
 
 
@@ -61,7 +67,9 @@ class SqueezeNet(nn.Module):
     def __init__(
         self,
         version: str = '1_1',
-        num_classes: int = 1000
+        num_classes: int = 1000,
+        quantAct = False,
+        bits=8
     ) -> None:
         super(SqueezeNet, self).__init__()
         self.num_classes = num_classes
@@ -85,16 +93,16 @@ class SqueezeNet(nn.Module):
             self.conv0 = nn.Conv2d(3, 64, kernel_size=3, stride=2)
             self.relu0 = nn.ReLU(inplace=True)
             self.pool0 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
-            self.fire1 = Fire(64, 16, 64, 64)
-            self.fire2 = Fire(128, 16, 64, 64)
+            self.fire1 = Fire(64, 16, 64, 64, quantAct=quantAct, bits=bits, key=0)
+            self.fire2 = Fire(128, 16, 64, 64, quantAct=quantAct, bits=bits, key=3)
             self.pool2 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
-            self.fire3 = Fire(128, 32, 128, 128)
-            self.fire4 = Fire(256, 32, 128, 128)
+            self.fire3 = Fire(128, 32, 128, 128, quantAct=quantAct, bits=bits, key=6)
+            self.fire4 = Fire(256, 32, 128, 128, quantAct=quantAct, bits=bits, key=9)
             self.pool4 = nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)
-            self.fire5 = Fire(256, 48, 192, 192)
-            self.fire6 = Fire(384, 48, 192, 192)
-            self.fire7 = Fire(384, 64, 256, 256)
-            self.fire8 = Fire(512, 64, 256, 256)
+            self.fire5 = Fire(256, 48, 192, 192, quantAct=quantAct, bits=bits, key=12)
+            self.fire6 = Fire(384, 48, 192, 192, quantAct=quantAct, bits=bits, key=15)
+            self.fire7 = Fire(384, 64, 256, 256, quantAct=quantAct, bits=bits, key=18)
+            self.fire8 = Fire(512, 64, 256, 256, quantAct=quantAct, bits=bits, key=21)
             '''
             self.features = nn.Sequential(
                 nn.Conv2d(3, 64, kernel_size=3, stride=2),
@@ -128,6 +136,9 @@ class SqueezeNet(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1))
         )
 
+        self.target_acts = [self.fire1, self.fire2, self.fire3, self.fire4, 
+                            self.fire5, self.fire6, self.fire7, self.fire8]
+
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 if m is final_conv:
@@ -140,29 +151,36 @@ class SqueezeNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, stats):
         #x = self.features(x)
 
         x = self.conv0(x)
         x = self.relu0(x)
         x = self.pool0(x)
         
-        x = self.fire1(x)
-        x = self.fire2(x)
+        x = self.fire1(x, stats)
+        x = self.fire2(x, stats)
         x = self.pool2(x)
 
-        x = self.fire3(x)
-        x = self.fire4(x)
+        x = self.fire3(x, stats)
+        x = self.fire4(x, stats)
         x = self.pool4(x)
 
-        x = self.fire5(x)
-        x = self.fire6(x)
-        x = self.fire7(x)
-        x = self.fire8(x)
+        x = self.fire5(x, stats)
+        x = self.fire6(x, stats)
+        x = self.fire7(x, stats)
+        x = self.fire8(x, stats)
 
         
         x = self.classifier(x)
         return torch.flatten(x, 1)
+
+    def print_Actinfo(self):
+
+        for layer in self.target_acts:
+            layer.squeeze.lqAct.print_info()
+            layer.expand1x1.lqAct.print_info()
+            layer.expand3x3.lqAct.print_info()
 
 def _squeezenet(version: str, pretrained: bool, progress: bool, **kwargs: Any) -> SqueezeNet:
     model = SqueezeNet(version, **kwargs)
