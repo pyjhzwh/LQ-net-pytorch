@@ -67,7 +67,7 @@ class convbnrelu_block(nn.Module):
             #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
             #else:
         if self.quantAct and stats is not None:
-            self.lqAct.update(x, stats, test=not self.training)
+            x = self.lqAct.update(x, stats, test=not self.training)
         if self.usebn is True:
             return (self.relu(self.bn(self.conv(x))))
         else:

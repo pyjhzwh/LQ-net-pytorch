@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
+from typing import Type, Any, Callable, Union, List, Optional
 
 from ._conv_block import *
 try:
@@ -15,7 +16,8 @@ except ImportError:
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
-    'resnet20': 'https://github.com/akamaster/pytorch_resnet_cifar10/raw/master/pretrained_models/resnet20.th'
+    'resnet20': 'https://github.com/akamaster/pytorch_resnet_cifar10/raw/master/pretrained_models/resnet20.th',
+    'resnet50': 'https://download.pytorch.org/models/resnet50-0676ba61.pth'
 }
 
 def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
@@ -66,9 +68,70 @@ class BasicBlock(nn.Module):
         #out += residual
 
         return out
+class Bottleneck(nn.Module):
+    # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
+    # while original implementation places the stride at the first 1x1 convolution(self.conv1)
+    # according to "Deep residual learning for image recognition"https://arxiv.org/abs/1512.03385.
+    # This variant is also known as ResNet V1.5 and improves accuracy according to
+    # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
+
+    expansion: int = 4
+
+    def __init__(
+        self,
+        inplanes: int,
+        planes: int,
+        stride: int = 1,
+        downsample: Optional[nn.Module] = None,
+        base_width: int = 64,
+        norm_layer: Optional[Callable[..., nn.Module]] = None
+    ) -> None:
+        super(Bottleneck, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        width = int(planes * (base_width / 64.))
+        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
+        #self.conv1 = conv1x1(inplanes, width)
+        #self.bn1 = norm_layer(width)
+        #self.conv2 = conv3x3(width, width, stride, groups, dilation)
+        #self.bn2 = norm_layer(width)
+        #self.conv3 = conv1x1(width, planes * self.expansion)
+        #self.bn3 = norm_layer(planes * self.expansion)
+        #self.relu = nn.ReLU(inplace=True)
+        self.conv1 = convbnrelu_block(inplanes, width, kernel_size=1, padding=0, stride=1, relu=True)
+        self.conv2 = convbnrelu_block(width, width, kernel_size=3, padding=1, stride=stride, relu=True)
+        self.conv3 = convbnresrelu_block(width, planes * self.expansion, kernel_size=1, padding=0, stride=1, relu=True)
+
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x) :
+        identity = x
+
+        #out = self.conv1(x)
+        #out = self.bn1(out)
+        #out = self.relu(out)
+
+        #out = self.conv2(out)
+        #out = self.bn2(out)
+        #out = self.relu(out)
+
+        #out = self.conv3(out)
+        #out = self.bn3(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        #out += identity
+        #out = self.relu(out)
+        out = self.conv1(x)
+        out = self.conv2(out)
+        out = self.conv3(out, identity)
+
+        return out
 
 class _make_layer(nn.Module):
-    def __init__(self, block, inplanes, planes, blocks, stride =1, early_predict=0, option='A'):
+    def __init__(self, block, inplanes, planes, blocks, stride =1, option='A'):
         super(_make_layer,self).__init__()
         self.inplanes=inplanes
         downsample = None
@@ -102,10 +165,11 @@ class _make_layer(nn.Module):
         return x
 
 class ResNet(nn.Module):
-    def __init__(self, block, layers, nclass=1000, zero_init_residual=False):
+    def __init__(self, block, layers, nclass=1000, zero_init_residual=False, expansion=1):
         super(ResNet,self).__init__()
         self.nclass = nclass
         self.inplanes = 64
+        self.expansion = expansion
         #self.conv1 = conv3x3(3,self.inplanes)
         #self.bn1 = nn.BatchNorm2d(self.inplanes)
         #self.relu = nn.ReLU(inplace=True)
@@ -114,9 +178,9 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = _make_layer(block,64,64,layers[0],stride=1)
-        self.layer2 = _make_layer(block,64,128,layers[1],stride=2)
-        self.layer3 = _make_layer(block,128,256,layers[2],stride=2)
-        self.layer4 = _make_layer(block,256,512,layers[3],stride=2)
+        self.layer2 = _make_layer(block,64*self.expansion,128,layers[1],stride=2)
+        self.layer3 = _make_layer(block,128*self.expansion,256,layers[2],stride=2)
+        self.layer4 = _make_layer(block,256*self.expansion,512,layers[3],stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(512* block.expansion, nclass)
@@ -138,23 +202,6 @@ class ResNet(nn.Module):
                 elif isinstance(m, BasicBlock):
                     nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
 
-    '''
-    def _make_layer(self, block, planes, blocks, stride =1):
-        downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            #print("downsample, stride = ",stride)
-            downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                nn.BatchNorm2d(planes * block.expansion)
-            )
-        layers = []
-        layers.append(block(self.inplanes,planes,stride,downsample))
-        self.inplanes = planes * block.expansion
-        for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
-
-        return nn.Sequential(*layers)
-    '''
 
     def forward(self,x):
 
@@ -212,6 +259,45 @@ def resnet18(pretrained: bool = False, progress: bool = True, **kwargs):
 
     return model
 
+
+
+def resnet50(pretrained: bool = False, progress: bool = True, **kwargs: Any):
+    r"""ResNet-50 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    model =  ResNet(Bottleneck, [3, 4, 6, 3], expansion=4, **kwargs)
+    
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls['resnet50'],
+                                              progress=progress)
+        
+        new_key_dict1={"conv1":"layer0.conv", "bn1": "layer0.bn"}
+        new_key_dict2={"conv1":"conv1.conv", "bn1": "conv1.bn","conv2":"conv2.conv", "bn2":"conv2.bn",
+                    "conv3":"conv3.conv", "bn3": "conv3.bn"}
+        for key in list(state_dict.keys()):
+            #print(key)
+            split_keys = key.split(".")
+            if split_keys[0] in new_key_dict1.keys():
+                new_key = new_key_dict1[split_keys[0]]+"."+key.split(".",1)[1]
+                state_dict[new_key] = state_dict.pop(key)
+            elif "layer" in split_keys[0]:
+                if split_keys[2] in new_key_dict2.keys():
+                    new_key = key.replace(split_keys[2], new_key_dict2[split_keys[2]])
+                    new_key_split = new_key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+                elif "downsample" in split_keys:
+                    new_key_split = key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+
+        
+        model.load_state_dict(state_dict)
+
+    return model
 
 class ResNet_cifar10(nn.Module):
     def __init__(self, block, layers, nclass=1000, zero_init_residual=False):

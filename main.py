@@ -108,7 +108,7 @@ def train(train_loader,optimizer, model, epoch, args, stats=None):
             LQ.apply()
 
         # compute output
-        output= model(images, stats)
+        output= model(images)
         #rint('stats',stats)
         loss = criterion(output, target)
 
@@ -199,7 +199,8 @@ if __name__=='__main__':
     parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
     parser.add_argument('--arch', action='store', default='resnet20',
-                        help='the CIFAR10 network structure: resnet20 | resnet18 | all_cnn_c | all_cnn_net | squeezenet')
+                        help='the CIFAR10 network structure: \
+                        resnet20 | resnet18 | resnet50 | all_cnn_net | alexnet')
     parser.add_argument('--dataset', action='store', default='cifar10',
             help='pretrained model: cifar10 | imagenet')
     parser.add_argument('--lq', default=False, 
@@ -272,8 +273,8 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
-                                              shuffle=True, num_workers=16)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,
+                                              shuffle=True, num_workers=12)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
                                            transforms.Compose([
@@ -282,12 +283,14 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=256,
-                                             shuffle=False, num_workers=16)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=64,
+                                             shuffle=False, num_workers=12)
 
 
-    if args.arch == 'resnet20':
-        model = modelarchs.resnet20(nclass=nclass)
+    if args.arch == 'resnet50':
+        pretrained = True
+        model = modelarchs.resnet50(pretrained = pretrained)
+        bestacc = 0
         
 
     elif args.arch == 'resnet18':
@@ -399,6 +402,7 @@ if __name__=='__main__':
         if args.lq:
             print('store quantized weights')
             LQ.apply(test=True)
+        print('quantActdict',quantActdict)
         if (acc > bestacc):
             bestacc = acc
             save_state(model,acc,epoch,args, optimizer, True, quantdict,quantActdict)

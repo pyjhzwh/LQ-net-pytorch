@@ -199,30 +199,36 @@ class lq_act():
             if self.key not in stats:
                 # init 
                 self.v = torch.max(x.data) / (2**self.b-1)
-                self.B = x.data.clone().zero_()
                 self.xmean = torch.mean(x)
-                stats[self.key] = {"v": self.v,  "bias":self.xmean}
+                self.zero_point = -1 * torch.round(self.xmean / self.v)
+                
+                self.B = x.data / self.v + self.zero_point
+                self.B = torch.round((self.B-1)/2)*2+1
+                self.B = torch.clamp(self.B, -(pow(2,self.b)-1), pow(2,self.b)-1)
+                
+                stats[self.key] = {"v": self.v, "zero_point":self.zero_point, "bias":self.xmean}
 
-                qx = self.B * self.v + self.xmean
+                qx = (self.B - self.zero_point) * self.v
 
             else:
-                self.B = (x.data - self.xmean) / self.v 
+                self.B = x.data / self.v + self.zero_point
                 self.B = torch.round((self.B-1)/2)*2+1
                 self.B = torch.clamp(self.B, -(pow(2,self.b)-1), pow(2,self.b)-1)
 
-                vi = torch.sum(torch.mul(self.B,(x.data - self.xmean)) / torch.sum(torch.mul(self.B,self.B)))
+                vi = torch.sum(torch.mul(self.B,(x.data + self.zero_point*self.v)) / torch.sum(torch.mul(self.B,self.B)))
                 # update v with moving average
                 if not test:
                     self.v = self.v * self.moving_aver + vi * (1-self.moving_aver)
 
-                qx = self.B * self.v + self.xmean
+                qx = (self.B - self.zero_point) * self.v
                 # update xmean
                 self.xmean = torch.mean(x.data)
+                self.zero_point = -1 * torch.round(self.xmean / self.v)
                 # update stats
-                stats[self.key] = {"v": self.v, "bias": self.xmean}
+                stats[self.key] = {"v": self.v,  "zero_point":self.zero_point, "bias": self.xmean}
 
             if not test:
-                self.err = self.err + torch.norm(x - qx) * self.moving_aver
+                self.err = self.err + torch.norm(x - qx)/x.numel() * self.moving_aver
 
 
         return qx
@@ -231,6 +237,7 @@ class lq_act():
         print('\n' + '-' * 30)
         print('layer ', self.key)
         print('v val:', self.v)
+        print('zero_point val:', self.zero_point)
         print('bias val:',self.xmean)
         print('quant err norm:', self.err)
 
