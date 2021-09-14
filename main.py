@@ -54,7 +54,7 @@ def test(val_loader, model, epoch, args, stats=None):
             images, target = Variable(images.cuda()), Variable(target.cuda())
 
             # compute output
-            output = model(images,stats)
+            output = model(images)
             loss = criterion(output, target)
 
             # measure accuracy and record loss
@@ -149,7 +149,7 @@ def train(train_loader,optimizer, model, epoch, args, stats=None):
         #if epoch == args.epochs -1:
         #    print('store quantized weights')
         #    LQ.storequntW()
-        model.print_Actinfo()
+        #model.print_Actinfo()
 
     return
 
@@ -242,7 +242,7 @@ if __name__=='__main__':
                                                 normalize,
                                                 ]))
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
-                                              shuffle=True, num_workers=16)
+                                              shuffle=True, num_workers=12)
 
         testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                            download=True, transform=
@@ -252,7 +252,7 @@ if __name__=='__main__':
                                                normalize,
                                                ]))
         testloader = torch.utils.data.DataLoader(testset, batch_size=256,
-                                             shuffle=False, num_workers=16)
+                                             shuffle=False, num_workers=12)
 
 
     if args.dataset == 'imagenet':

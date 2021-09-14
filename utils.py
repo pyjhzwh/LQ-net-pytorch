@@ -144,6 +144,15 @@ def gen_target_weights(model, arch):
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 target_weights.append(m.weight)
         target_weights = target_weights[1:-1]
+    
+    #elif arch == 'resnet50':
+    #    for m in model.modules():
+    #        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+    #            target_weights.append(m.weight)
+    #    target_weights = target_weights[1:4] + target_weights[5:14] + \
+    #        target_weights[15:27] + target_weights[28:46] + target_weights[47:-1]
+    
+
     elif arch == 'alexnet' or 'vgg' in arch or arch == 'googlenet' or arch == 'squeezenet':
         for m in model.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):

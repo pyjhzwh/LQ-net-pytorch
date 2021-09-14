@@ -130,6 +130,7 @@ class learned_quant():
             #if key in layerdict:
         for i in range(len(self.W)):
             print(i,' layer')
+            print('W suze:', self.W[i].data.size())
             print('W val:',self.W[i].data.view(1,-1))
             print('quant val:',(self.B[i]*self.v[i]+self.Wmean[i]).view(1,-1))
             #print('quant val:',((self.B[i] + torch.round(self.Wmean[i] / self.v[i]))* self.v[i]).view(1,-1))
