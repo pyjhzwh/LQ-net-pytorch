@@ -28,7 +28,7 @@ def downsample(data, outsize=28):
 class convbnrelu_block(nn.Module):
 
     def __init__(self, in_planes, out_planes, kernel_size=1, padding=0,
-            stride = 1, relu = True, usebn= True, early_predict=0, bn_adjust=0,
+            stride = 1, groups=1, relu = None, usebn= True, early_predict=0, bn_adjust=0,
             quantAct=False, bits=8, key=''):
         super(convbnrelu_block, self).__init__()
         self.in_planes = in_planes
@@ -36,6 +36,7 @@ class convbnrelu_block(nn.Module):
         self.kernel_size = kernel_size
         self.padding = padding
         self.stride = stride
+        self.groups = groups
         # early_predict mode
         # 0: no early_predict
         # 1: exact mode (first positive weights, then negative weights from the MSB to LSB)
@@ -52,13 +53,19 @@ class convbnrelu_block(nn.Module):
 
         if self.quantAct:
             self.lqAct = lq_act(key, self.bits)
-        self.conv = nn.Conv2d(self.in_planes, self.out_planes, self.kernel_size,
-                padding=self.padding, stride=self.stride, bias = useconvbias)
+        self.conv = nn.Conv2d(
+            self.in_planes, self.out_planes, self.kernel_size,
+            padding=self.padding, stride=self.stride, bias=useconvbias,
+            groups=self.groups,
+        )
         
         if self.usebn is True:
             self.bn = nn.BatchNorm2d(self.out_planes)
 
-        self.relu = nn.ReLU(inplace=True)
+        if relu is None:
+            self.relu = nn.ReLU(inplace=True)
+        else:
+            self.relu = relu(inplace=True)
     
     def forward(self, x, stats=None):
 
