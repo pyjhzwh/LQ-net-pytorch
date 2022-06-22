@@ -19,31 +19,33 @@ class all_cnn_net(nn.Module):
             conv_block = convbnrelu_block 
         elif block_type == 'convrelubn':
             conv_block = convrelubn_block
+        elif block_type == 'convbnsilu':
+            conv_block = convbnsilu_block
         else:
             ValueError('conv_block type either be convbnreku or convrelubn')
 
-        self.conv0 = conv_block(3, 96, kernel_size=3, padding=1, stride=1, relu=True)
-        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, relu=True, 
+        self.conv0 = conv_block(3, 96, kernel_size=3, padding=1, stride=1)
+        self.conv1 = conv_block(96, 96, kernel_size=3, padding=1, stride=1, 
                                 quantAct=quantAct, bits=self.bits[0], key='conv1')
-        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, relu=True, 
+        self.conv2 = conv_block(96, 96, kernel_size=3, padding=1, stride=2, 
                                 quantAct=quantAct, bits=self.bits[1], key='conv2')
 
         self.dropout0 = nn.Dropout(p=0.5)
 
-        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, relu=True, 
+        self.conv3 = conv_block(96, 192, kernel_size=3, padding=1, stride=1, 
                                 quantAct=quantAct, bits=self.bits[2], key='conv3')
-        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True, 
+        self.conv4 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, 
                                 quantAct=quantAct, bits=self.bits[3], key='conv4')
-        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, relu=True, 
+        self.conv5 = conv_block(192, 192, kernel_size=3, padding=1, stride=2, 
                                 quantAct=quantAct, bits=self.bits[4], key='conv5')
 
         self.dropout1 = nn.Dropout(p=0.5)
 
-        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, relu=True, 
+        self.conv6 = conv_block(192, 192, kernel_size=3, padding=1, stride=1, 
                                 quantAct=quantAct, bits=self.bits[5], key='conv6')
-        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, relu=True, 
+        self.conv7 = conv_block(192, 192, kernel_size=1, padding=0, stride=1, 
                                 quantAct=quantAct, bits=self.bits[6], key='conv7')
-        self.conv8 = conv_block(192, 10, kernel_size=1, padding=0, stride=1, relu=True)
+        self.conv8 = conv_block(192, 10, kernel_size=1, padding=0, stride=1)
 
 
         self.target_acts = [self.conv1, self.conv2, self.conv3, self.conv4, 

@@ -128,3 +128,51 @@ class convbnresrelu_block(nn.Module):
             #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
             #else:
         return (self.relu(identity + self.bn(self.conv(x))))
+
+class convbnsilu_block(nn.Module):
+
+    def __init__(self, in_planes, out_planes, kernel_size=1, padding=0,
+            stride = 1, swish = True, usebn= True, early_predict=0, bn_adjust=0,
+            quantAct=False, bits=8, key=''):
+        super(convbnsilu_block, self).__init__()
+        self.in_planes = in_planes
+        self.out_planes = out_planes
+        self.kernel_size = kernel_size
+        self.padding = padding
+        self.stride = stride
+        # early_predict mode
+        # 0: no early_predict
+        # 1: exact mode (first positive weights, then negative weights from the MSB to LSB)
+        # 2: predictive mode ( deal with postive and negative weights together)
+        self.early_predict = early_predict
+        self.bn_adjust = bn_adjust
+        self.usebn = usebn
+        if self.usebn:
+            useconvbias = False
+        else:
+            useconvbias = True
+        self.quantAct = quantAct
+        self.bits=bits
+
+        if self.quantAct:
+            self.lqAct = lq_act(key, self.bits)
+        self.conv = nn.Conv2d(self.in_planes, self.out_planes, self.kernel_size,
+                padding=self.padding, stride=self.stride, bias = useconvbias)
+        
+        if self.usebn is True:
+            self.bn = nn.BatchNorm2d(self.out_planes)
+
+        self.silu = nn.SiLU(inplace=True)
+    
+    def forward(self, x, stats=None):
+
+        #if self.early_predict == 0:
+            #if epoch <= 250:
+            #    return(self.relu(self.bn(self.conv(x))+self.bn_adjust)), computation
+            #else:
+        if self.quantAct and stats is not None:
+            x = self.lqAct.update(x, stats, test=not self.training)
+        if self.usebn is True:
+            return (self.silu(self.bn(self.conv(x))))
+        else:
+            return self.silu(self.conv(x))

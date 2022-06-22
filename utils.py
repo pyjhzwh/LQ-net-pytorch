@@ -19,7 +19,10 @@ from torch.autograd import Variable
 import modelarchs
 
 def save_state(model, best_acc, epoch, args,optimizer, isbest, quant_info=None, quantActdict=None):
-    dirpath = 'saved_models/'
+    if args.block_type == 'convbnsilu':
+        dirpath = 'saved_models/swish/'
+    else:
+        dirpath = 'saved_models/'
     suffix = '.ckp_origin.pth.tar'
     state = {
             'acc': best_acc,

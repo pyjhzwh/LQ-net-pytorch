@@ -210,7 +210,7 @@ if __name__=='__main__':
     parser.add_argument('--needbias', default=False, 
             help = 'use bias in quantized value or not',action='store_true')
     parser.add_argument('--block_type', action='store', default='convbnrelu',
-            help='convbnrelu or convrelubn')
+            help='convbnrelu, convrelubn or convbnsilu')
     parser.add_argument('--quantAct', default=False, 
             help = 'quant activations or not',action='store_true')
 
@@ -364,7 +364,7 @@ if __name__=='__main__':
         #            device_ids=range(torch.cuda.device_count()))
         #model = nn.DataParallel(model, device_ids=args.gpu)
 
-    print(model)
+    #print(model)
     '''
     for name, param in model.named_parameters():
         if param.requires_grad and 'conv2' in name:

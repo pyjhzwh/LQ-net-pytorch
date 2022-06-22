@@ -300,7 +300,7 @@ def resnet50(pretrained: bool = False, progress: bool = True, **kwargs: Any):
     return model
 
 class ResNet_cifar10(nn.Module):
-    def __init__(self, block, layers, nclass=1000, zero_init_residual=False):
+    def __init__(self, block, layers, nclass=10, zero_init_residual=False):
         super(ResNet_cifar10,self).__init__()
         self.nclass = nclass
         self.inplanes = 16
