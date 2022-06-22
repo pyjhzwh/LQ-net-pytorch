@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
+from torchvision.models.mobilenetv2 import MobileNet_V2_Weights as MobileNet_V2_Weights
 from torch.autograd import Variable
 from utils import *
 
@@ -171,7 +172,7 @@ def accuracy(output, target, topk=(1,)):
 
 
 if __name__=='__main__':
-    imagenet_datapath= '/data2/jiecaoyu/imagenet/imgs/'
+    imagenet_datapath= '/datasets01/imagenet_full_size/061417/'
     parser = argparse.ArgumentParser(description='PyTorch MNIST ResNet Example')
     parser.add_argument('--no_cuda', default=False, 
             help = 'do not use cuda',action='store_true')
@@ -273,7 +274,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=64,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=1024,
                                               shuffle=True, num_workers=12)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
@@ -283,7 +284,7 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=64,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=2048,
                                              shuffle=False, num_workers=12)
 
 
@@ -317,6 +318,9 @@ if __name__=='__main__':
     elif args.arch == 'squeezenet':
         model = modelarchs.squeezenet1_1(pretrained=True, progress=True, quantAct=args.quantAct,
             bits = args.bits[0])
+    
+    elif args.arch == 'mobilenet_v2':
+        model = modelarchs.mobilenet_v2(weights=MobileNet_V2_Weights.IMAGENET1K_V1)
     
     elif args.arch == 'googlenet':
         model = modelarchs.googlenet(pretrained=True, progress=True)
@@ -360,8 +364,8 @@ if __name__=='__main__':
 
     if args.cuda:
         model.cuda()
-        #model = nn.DataParallel(model, 
-        #            device_ids=range(torch.cuda.device_count()))
+        model = nn.DataParallel(model, 
+                    device_ids=range(torch.cuda.device_count()))
         #model = nn.DataParallel(model, device_ids=args.gpu)
 
     #print(model)

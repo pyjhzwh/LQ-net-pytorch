@@ -1,7 +1,7 @@
 #! /bin/bash
 export LD_LIBRARY_PATH=/home/panyj/.local/lib/:/home/panyj/intel/ipp/lib/:$LD_LIBRARY_PATH
 
-ARCH=resnet50
+ARCH=mobilenet_v2
 DATASET=imagenet
 #DIR=all_cnn_net_log/cifar10
 DIR=log/
@@ -32,13 +32,15 @@ for i in "${bitsets[@]}"; do
     # resnet18
     #CUDA_VISIBLE_DEVICES=2 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 10 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30 --needbias #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # resnet50
-    CUDA_VISIBLE_DEVICES=2 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 10 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30 --needbias #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
+    # CUDA_VISIBLE_DEVICES=2 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 10 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30 --needbias #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # resnet20
     #CUDA_VISIBLE_DEVICES=0 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 10 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30 --needbias #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # googlenet
     #CUDA_VISIBLE_DEVICES=0,1 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 20 --wd 1e-4 --lq  --bits ${i} --lr_epochs 15 --needbias #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # squeezenet
     #CUDA_VISIBLE_DEVICES=1 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 30 --wd 1e-4  --lq --bits ${i} --lr_epochs 15 --needbias --quantAct #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
+    # mobilenet_v2
+    CUDA_VISIBLE_DEVICES=0,1,2,3 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 30 --wd 1e-4  --lq --bits ${i} --lr_epochs 15 --needbias --quantAct #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # vgg
     #CUDA_VISIBLE_DEVICES=0 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 5 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30  #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     #CUDA_VISIBLE_DEVICES=0 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 500 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30  #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"

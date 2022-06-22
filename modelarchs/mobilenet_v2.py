@@ -1,4 +1,3 @@
-import warnings
 from functools import partial
 from typing import Callable, Any, Optional, List
 
@@ -7,14 +6,25 @@ from torch import Tensor
 from torch import nn
 
 from ._conv_block import convbnrelu_block
-from ..transforms._presets import ImageClassification
-from ..utils import _log_api_usage_once
-from ._api import WeightsEnum, Weights
-from ._meta import _IMAGENET_CATEGORIES
-from ._utils import handle_legacy_interface, _ovewrite_named_param, _make_divisible
+from torchvision.models.mobilenetv2 import MobileNet_V2_Weights as MobileNet_V2_Weights
+
+__all__ = ["MobileNetV2", "mobilenet_v2"]
 
 
-__all__ = ["MobileNetV2", "MobileNet_V2_Weights", "mobilenet_v2"]
+def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
+    """
+    This function is taken from the original tf repo.
+    It ensures that all layers have a channel number that is divisible by 8
+    It can be seen here:
+    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
 
 
 class InvertedResidual(nn.Module):
@@ -41,6 +51,8 @@ class InvertedResidual(nn.Module):
                 convbnrelu_block(
                     hidden_dim,
                     hidden_dim,
+                    kernel_size=3,
+                    padding = 1,
                     stride=stride,
                     groups=hidden_dim,
                     relu=nn.ReLU6,
@@ -83,7 +95,6 @@ class MobileNetV2(nn.Module):
             dropout (float): The droupout probability
         """
         super().__init__()
-        _log_api_usage_once(self)
 
         input_channel = 32
         last_channel = 1280
@@ -110,7 +121,7 @@ class MobileNetV2(nn.Module):
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
         self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
         features: List[nn.Module] = [
-            convbnrelu_block(3, input_channel, stride=2, relu=nn.ReLU6)
+            convbnrelu_block(3, input_channel, kernel_size=3, padding=1, stride=2, relu=nn.ReLU6)
         ]
         # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
@@ -161,52 +172,6 @@ class MobileNetV2(nn.Module):
         return self._forward_impl(x)
 
 
-_COMMON_META = {
-    "num_params": 3504872,
-    "min_size": (1, 1),
-    "categories": _IMAGENET_CATEGORIES,
-}
-
-
-class MobileNet_V2_Weights(WeightsEnum):
-    IMAGENET1K_V1 = Weights(
-        url="https://download.pytorch.org/models/mobilenet_v2-b0353104.pth",
-        transforms=partial(ImageClassification, crop_size=224),
-        meta={
-            **_COMMON_META,
-            "recipe": "https://github.com/pytorch/vision/tree/main/references/classification#mobilenetv2",
-            "_metrics": {
-                "ImageNet-1K": {
-                    "acc@1": 71.878,
-                    "acc@5": 90.286,
-                }
-            },
-            "_docs": """These weights reproduce closely the results of the paper using a simple training recipe.""",
-        },
-    )
-    IMAGENET1K_V2 = Weights(
-        url="https://download.pytorch.org/models/mobilenet_v2-7ebf99e0.pth",
-        transforms=partial(ImageClassification, crop_size=224, resize_size=232),
-        meta={
-            **_COMMON_META,
-            "recipe": "https://github.com/pytorch/vision/issues/3995#new-recipe-with-reg-tuning",
-            "_metrics": {
-                "ImageNet-1K": {
-                    "acc@1": 72.154,
-                    "acc@5": 90.822,
-                }
-            },
-            "_docs": """
-                These weights improve upon the results of the original paper by using a modified version of TorchVision's
-                `new training recipe
-                <https://pytorch.org/blog/how-to-train-state-of-the-art-models-using-torchvision-latest-primitives/>`_.
-            """,
-        },
-    )
-    DEFAULT = IMAGENET1K_V2
-
-
-@handle_legacy_interface(weights=("pretrained", MobileNet_V2_Weights.IMAGENET1K_V1))
 def mobilenet_v2(
     *, weights: Optional[MobileNet_V2_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> MobileNetV2:
@@ -229,12 +194,25 @@ def mobilenet_v2(
     """
     weights = MobileNet_V2_Weights.verify(weights)
 
-    if weights is not None:
-        _ovewrite_named_param(kwargs, "num_classes", len(weights.meta["categories"]))
+    # if weights is not None:
+    #     _ovewrite_named_param(kwargs, "num_classes", len(weights.meta["categories"]))
 
     model = MobileNetV2(**kwargs)
 
     if weights is not None:
-        model.load_state_dict(weights.get_state_dict(progress=progress))
+        # model.load_state_dict(weights.get_state_dict(progress=progress))
+        state_dict = weights.get_state_dict(progress=progress)
+
+        map_dict={"0":".conv.", "1":".bn."}
+        for key in list(state_dict.keys()):
+            split_keys = key.split(".")
+            if split_keys[2] in map_dict.keys():
+                new_key =".".join(split_keys[:2]) + map_dict[split_keys[2]] + ".".join(split_keys[3:])
+                state_dict[new_key] = state_dict.pop(key)
+            elif len(split_keys) > 4 and split_keys[4] in map_dict.keys():
+                new_key =".".join(split_keys[:4]) + map_dict[split_keys[4]] + ".".join(split_keys[5:])
+                state_dict[new_key] = state_dict.pop(key)
+        
+        model.load_state_dict(state_dict)
 
     return model
