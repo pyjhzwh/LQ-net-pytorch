@@ -58,6 +58,8 @@ def load_state(model, state_dict):
         elif 'module.'+key in state_dict_keys:
             #print(key, state_dict['module.'+key].shape, cur_state_dict[key].shape)
             cur_state_dict[key].copy_(state_dict['module.'+key])
+        else:
+            print(f"{key} is missing in state_dict")
 
     
     #model.load_state_dict(state_dict)
@@ -167,9 +169,9 @@ def gen_target_weights(model, arch):
     else:
         raise Exception ('{} not supported'.format(arch))
     print('\nQuantizing {} layers:'.format(len(target_weights)))
-    for item in target_weights:
-        print(item.shape)
-    print('\n')
+    # for item in target_weights:
+    #     print(item.shape)
+    # print('\n')
     return target_weights
 
 

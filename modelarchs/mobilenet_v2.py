@@ -125,7 +125,7 @@ class MobileNetV2(nn.Module):
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
         self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
         features: List[nn.Module] = [
-            Conv2dNormActivation(3, input_channel, stride=2, norm_layer=nn.BatchNorm2d, activation_layer=nn.ReLU6)
+            convbnrelu_block(3, input_channel, kernel_size=3, stride=2, relu=nn.ReLU6)
         ]
         # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
@@ -218,10 +218,7 @@ def mobilenet_v2(
         # three_layers=["2","3","4","5","7","8","9","10","11","12","13"]
         for key in list(state_dict.keys()):
             split_keys = key.split(".")
-            if split_keys[1] == "0":
-                # print(f"key={key}")
-                continue
-            elif split_keys[1] == "18":
+            if split_keys[1] == "0" or split_keys[1] == "18":
                 new_key = f"{'.'.join(split_keys[:2])}.{map_dict[split_keys[2]]}.{'.'.join(split_keys[3:])}"
                 state_dict[new_key] = state_dict.pop(key)
             elif len(split_keys) > 4:

@@ -274,7 +274,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=1024,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=2048,
                                               shuffle=True, num_workers=12)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
@@ -284,7 +284,7 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=2048,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=1024,
                                              shuffle=False, num_workers=12)
 
 
@@ -353,6 +353,7 @@ if __name__=='__main__':
         pretrained_model = torch.load(args.pretrained[0])
         bestacc = 0#pretrained_model['acc']
         args.start_epoch = pretrained_model['epoch']
+        # model.load_state_dict(pretrained_model['state_dict'])
         load_state(model, pretrained_model['state_dict'])
         if 'quant_info' in pretrained_model:
             quantInfo = pretrained_model['quant_info']
@@ -406,7 +407,7 @@ if __name__=='__main__':
         if args.lq:
             print('store quantized weights')
             LQ.apply(test=True)
-        print('quantActdict',quantActdict)
+        # print('quantActdict',quantActdict)
         if (acc > bestacc):
             bestacc = acc
             save_state(model,acc,epoch,args, optimizer, True, quantdict,quantActdict)
