@@ -28,7 +28,7 @@ def downsample(data, outsize=28):
 class convbnrelu_block(nn.Module):
 
     def __init__(self, in_planes, out_planes, kernel_size=1, padding=0,
-            stride = 1, groups=1, relu = None, usebn= True, early_predict=0, bn_adjust=0,
+            stride = 1, groups=1, relu = nn.ReLU, usebn= True, early_predict=0, bn_adjust=0,
             quantAct=False, bits=8, key=''):
         super(convbnrelu_block, self).__init__()
         self.in_planes = in_planes
@@ -63,7 +63,7 @@ class convbnrelu_block(nn.Module):
             self.bn = nn.BatchNorm2d(self.out_planes)
 
         if relu is None:
-            self.relu = nn.ReLU(inplace=True)
+            self.relu = lambda fn: fn
         else:
             self.relu = relu(inplace=True)
     

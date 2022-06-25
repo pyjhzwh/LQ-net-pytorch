@@ -40,7 +40,7 @@ for i in "${bitsets[@]}"; do
     # squeezenet
     #CUDA_VISIBLE_DEVICES=1 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 30 --wd 1e-4  --lq --bits ${i} --lr_epochs 15 --needbias --quantAct #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # mobilenet_v2
-    CUDA_VISIBLE_DEVICES=0,1,2,3 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 30 --wd 1e-4  --lq --bits ${i} --lr_epochs 15 --needbias --quantAct #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
+    CUDA_VISIBLE_DEVICES=0,1,2,3 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 10 --wd 1e-4  --lq --bits ${i} --lr_epochs 15 --needbias #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     # vgg
     #CUDA_VISIBLE_DEVICES=0 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-4 --epochs 5 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30  #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"
     #CUDA_VISIBLE_DEVICES=0 python3 main.py --arch ${ARCH} --dataset ${DATASET} --lr 1e-3 --epochs 500 --wd 1e-4 --lq  --bits ${i} --lr_epochs 30  #2>&1 | tee "${DIR}/${ARCH}_${i}_from_stretch_convbnrelu.log"

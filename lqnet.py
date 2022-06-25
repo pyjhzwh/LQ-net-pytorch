@@ -143,23 +143,14 @@ class learned_quant():
             #print('L2 norm of W and preW:',torch.norm((self.W[i]-self.preW[i]).view(1,-1)))
         print('\n' + '-' * 30)
 
-    def print_weights(self):
-        print('\n' + '-' * 30)
-        i = 0
-        for key, value in self.model.named_parameters():
-            if key in layerdict:
-                print(key)
-                print('W val:',self.W[i].data.view(1,-1))
-                i = i+1
-        print('\n' + '-' * 30)
-
     def save_quantinfo(self):
-        quant_info={}
+        quant_info=[]
         i = 0
         for i in range(len(self.W)):
-            quant_info[i] = {}
-            quant_info[i]['bias'] = self.Wmean[i]
-            quant_info[i]['scale'] = self.v[i]
+            quant_info_i = {}
+            quant_info_i['bias'] = self.Wmean[i]
+            quant_info_i['scale'] = self.v[i]
+            quant_info.append(quant_info_i)
 
         return quant_info
     

@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Callable, Any, Optional, List
 
 import torch
@@ -6,6 +5,7 @@ from torch import Tensor
 from torch import nn
 
 from ._conv_block import convbnrelu_block
+from torchvision.ops.misc import Conv2dNormActivation as Conv2dNormActivation
 from torchvision.models.mobilenetv2 import MobileNet_V2_Weights as MobileNet_V2_Weights
 
 __all__ = ["MobileNetV2", "mobilenet_v2"]
@@ -58,8 +58,12 @@ class InvertedResidual(nn.Module):
                     relu=nn.ReLU6,
                 ),
                 # pw-linear
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
+                # nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                # nn.BatchNorm2d(oup),
+                convbnrelu_block(
+                    hidden_dim, oup, kernel_size=1, stride=1, padding=0,
+                    usebn=True, relu=None,
+                ),
             ]
         )
         self.conv = nn.Sequential(*layers)
@@ -121,7 +125,7 @@ class MobileNetV2(nn.Module):
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
         self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
         features: List[nn.Module] = [
-            convbnrelu_block(3, input_channel, kernel_size=3, padding=1, stride=2, relu=nn.ReLU6)
+            Conv2dNormActivation(3, input_channel, stride=2, norm_layer=nn.BatchNorm2d, activation_layer=nn.ReLU6)
         ]
         # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
@@ -171,7 +175,11 @@ class MobileNetV2(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)
 
-
+# MobileNet_V2_Weights.IMAGENET1K_V1
+# "ImageNet-1K": {
+#     "acc@1": 71.878,
+#     "acc@5": 90.286,
+# }
 def mobilenet_v2(
     *, weights: Optional[MobileNet_V2_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> MobileNetV2:
@@ -202,17 +210,40 @@ def mobilenet_v2(
     if weights is not None:
         # model.load_state_dict(weights.get_state_dict(progress=progress))
         state_dict = weights.get_state_dict(progress=progress)
-
-        map_dict={"0":".conv.", "1":".bn."}
+        # print("keys", state_dict.keys())
+        map_dict={"0":"conv", "1":"bn"}
+        map_dict2={"1":"conv", "2":"bn"}
+        map_dict3={"2":"conv", "3":"bn"}
+        two_layers=["1"]
+        # three_layers=["2","3","4","5","7","8","9","10","11","12","13"]
         for key in list(state_dict.keys()):
             split_keys = key.split(".")
-            if split_keys[2] in map_dict.keys():
-                new_key =".".join(split_keys[:2]) + map_dict[split_keys[2]] + ".".join(split_keys[3:])
+            if split_keys[1] == "0":
+                # print(f"key={key}")
+                continue
+            elif split_keys[1] == "18":
+                new_key = f"{'.'.join(split_keys[:2])}.{map_dict[split_keys[2]]}.{'.'.join(split_keys[3:])}"
                 state_dict[new_key] = state_dict.pop(key)
-            elif len(split_keys) > 4 and split_keys[4] in map_dict.keys():
-                new_key =".".join(split_keys[:4]) + map_dict[split_keys[4]] + ".".join(split_keys[5:])
+            elif len(split_keys) > 4:
+                if split_keys[4] in map_dict.keys():
+                    new_key =f"{'.'.join(split_keys[:4])}.{map_dict[split_keys[4]]}.{'.'.join(split_keys[5:])}"
+                elif split_keys[3].isnumeric():
+                    if split_keys[1] in two_layers:
+                        layer_id = str(int(split_keys[3])// 3 + 1)
+                        new_key = f"{'.'.join(split_keys[:3])}.{layer_id}.{map_dict2[split_keys[3]]}.{'.'.join(split_keys[4:])}"
+                    else:
+                        layer_id = str(int(split_keys[3])// 2 + 1)
+                        new_key = f"{'.'.join(split_keys[:3])}.{layer_id}.{map_dict3[split_keys[3]]}.{'.'.join(split_keys[4:])}"
+                        
+                    # and split_keys[2] in map_dict.keys():
+                    # new_key =".".join(split_keys[:2]) + map_dict[split_keys[2]] + ".".join(split_keys[3:])
+                    # state_dict[new_key] = state_dict.pop(key)
+                
                 state_dict[new_key] = state_dict.pop(key)
-        
+                # print(f"key={key}, new_key={new_key}")
+                # key=features.1.conv.0.0.weight, new_key=features.1.conv.0.conv.weight
+                # exit()
+        # print("new keys", state_dict.keys())
         model.load_state_dict(state_dict)
 
     return model
