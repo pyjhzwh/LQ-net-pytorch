@@ -172,7 +172,8 @@ def accuracy(output, target, topk=(1,)):
 
 
 if __name__=='__main__':
-    imagenet_datapath= '/datasets01/imagenet_full_size/061417/'
+    # imagenet_datapath= '/datasets01/imagenet_full_size/061417/'
+    imagenet_datapath= '/data2/jiecaoyu/imagenet/imgs/'
     parser = argparse.ArgumentParser(description='PyTorch MNIST ResNet Example')
     parser.add_argument('--no_cuda', default=False, 
             help = 'do not use cuda',action='store_true')
@@ -274,7 +275,7 @@ if __name__=='__main__':
                                                 transforms.ToTensor(),
                                                 normalize,
                                                 ]))
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=2048,
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128,
                                               shuffle=True, num_workers=12)
 
         testset = torchvision.datasets.ImageFolder(root=testdir,transform=
@@ -284,7 +285,7 @@ if __name__=='__main__':
                                                transforms.ToTensor(),
                                                normalize,
                                                ]))
-        testloader = torch.utils.data.DataLoader(testset, batch_size=1024,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=128,
                                              shuffle=False, num_workers=12)
 
 

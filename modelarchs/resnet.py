@@ -45,8 +45,8 @@ class BasicBlock(nn.Module):
         #self.relu2 = nn.ReLU(inplace=True)
         #self.conv2 = conv3x3(planes, planes)
 
-        self.conv1 = convbnrelu_block(inplanes, planes, kernel_size=3, padding=1, stride=stride, relu=True)
-        self.conv2 = convbnresrelu_block(planes, planes, kernel_size=3, padding=1, stride=1, relu=True)
+        self.conv1 = convbnrelu_block(inplanes, planes, kernel_size=3, padding=1, stride=stride, relu=nn.ReLU)
+        self.conv2 = convbnresrelu_block(planes, planes, kernel_size=3, padding=1, stride=1, relu=nn.ReLU)
         
 
         self.downsample = downsample
@@ -98,9 +98,9 @@ class Bottleneck(nn.Module):
         #self.conv3 = conv1x1(width, planes * self.expansion)
         #self.bn3 = norm_layer(planes * self.expansion)
         #self.relu = nn.ReLU(inplace=True)
-        self.conv1 = convbnrelu_block(inplanes, width, kernel_size=1, padding=0, stride=1, relu=True)
-        self.conv2 = convbnrelu_block(width, width, kernel_size=3, padding=1, stride=stride, relu=True)
-        self.conv3 = convbnresrelu_block(width, planes * self.expansion, kernel_size=1, padding=0, stride=1, relu=True)
+        self.conv1 = convbnrelu_block(inplanes, width, kernel_size=1, padding=0, stride=1, relu=nn.ReLU)
+        self.conv2 = convbnrelu_block(width, width, kernel_size=3, padding=1, stride=stride, relu=nn.ReLU)
+        self.conv3 = convbnresrelu_block(width, planes * self.expansion, kernel_size=1, padding=0, stride=1, relu=nn.ReLU)
 
         self.downsample = downsample
         self.stride = stride
