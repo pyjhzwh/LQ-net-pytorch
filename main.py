@@ -202,7 +202,7 @@ if __name__=='__main__':
                     help='GPU id to use.')
     parser.add_argument('--arch', action='store', default='resnet20',
                         help='the CIFAR10 network structure: \
-                        resnet20 | resnet18 | resnet50 | all_cnn_net | alexnet')
+                        resnet20 | resnet18 | resnet50 | resnet152 | all_cnn_net | alexnet')
     parser.add_argument('--dataset', action='store', default='cifar10',
             help='pretrained model: cifar10 | imagenet')
     parser.add_argument('--lq', default=False, 
@@ -299,6 +299,11 @@ if __name__=='__main__':
         #pretrained = False if args.pretrained is not None else True
         pretrained = True
         model = modelarchs.resnet18(pretrained = pretrained)
+        bestacc = 0
+    
+    elif args.arch == 'resnet152':
+        pretrained = True
+        model = modelarchs.resnet152(pretrained = pretrained)
         bestacc = 0
     
     elif args.arch == 'resnet20':

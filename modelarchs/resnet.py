@@ -17,7 +17,9 @@ except ImportError:
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet20': 'https://github.com/akamaster/pytorch_resnet_cifar10/raw/master/pretrained_models/resnet20.th',
-    'resnet50': 'https://download.pytorch.org/models/resnet50-0676ba61.pth'
+    'resnet50': 'https://download.pytorch.org/models/resnet50-0676ba61.pth',
+    "resnet101": "https://download.pytorch.org/models/resnet101-63fe2227.pth",
+    "resnet152": "https://download.pytorch.org/models/resnet152-394f9c45.pth",
 }
 
 def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
@@ -68,6 +70,7 @@ class BasicBlock(nn.Module):
         #out += residual
 
         return out
+
 class Bottleneck(nn.Module):
     # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
     # while original implementation places the stride at the first 1x1 convolution(self.conv1)
@@ -165,8 +168,9 @@ class _make_layer(nn.Module):
         return x
 
 class ResNet(nn.Module):
-    def __init__(self, block, layers, nclass=1000, zero_init_residual=False, expansion=1):
+    def __init__(self, name, block, layers, nclass=1000, zero_init_residual=False, expansion=1):
         super(ResNet,self).__init__()
+        self.name = name
         self.nclass = nclass
         self.inplanes = 64
         self.expansion = expansion
@@ -178,9 +182,9 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = _make_layer(block,64,64,layers[0],stride=1)
-        self.layer2 = _make_layer(block,64*self.expansion,128,layers[1],stride=2)
-        self.layer3 = _make_layer(block,128*self.expansion,256,layers[2],stride=2)
-        self.layer4 = _make_layer(block,256*self.expansion,512,layers[3],stride=2)
+        self.layer2 = _make_layer(block,64*block.expansion,128,layers[1],stride=2)
+        self.layer3 = _make_layer(block,128*block.expansion,256,layers[2],stride=2)
+        self.layer4 = _make_layer(block,256*block.expansion,512,layers[3],stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(512* block.expansion, nclass)
@@ -230,7 +234,7 @@ def resnet18(pretrained: bool = False, progress: bool = True, **kwargs):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+    model = ResNet("resnet18", BasicBlock, [2, 2, 2, 2], **kwargs)
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls['resnet18'],
                                               progress=progress)
@@ -268,7 +272,7 @@ def resnet50(pretrained: bool = False, progress: bool = True, **kwargs: Any):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    model =  ResNet(Bottleneck, [3, 4, 6, 3], expansion=4, **kwargs)
+    model =  ResNet("resnet50", Bottleneck, [3, 4, 6, 3], expansion=4, **kwargs)
     
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls['resnet50'],
@@ -299,6 +303,79 @@ def resnet50(pretrained: bool = False, progress: bool = True, **kwargs: Any):
 
     return model
 
+
+def resnet101(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+    r"""ResNet-101 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    model = ResNet("resnet101", Bottleneck, [3, 4, 23, 3], **kwargs)
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls['resnet101'],
+                                              progress=progress)
+        new_key_dict1={"conv1":"layer0.conv", "bn1": "layer0.bn"}
+        new_key_dict2={"conv1":"conv1.conv", "bn1": "conv1.bn","conv2":"conv2.conv", "bn2":"conv2.bn",
+                    "conv3":"conv3.conv", "bn3": "conv3.bn"}
+        for key in list(state_dict.keys()):
+            #print(key)
+            split_keys = key.split(".")
+            if split_keys[0] in new_key_dict1.keys():
+                new_key = new_key_dict1[split_keys[0]]+"."+key.split(".",1)[1]
+                state_dict[new_key] = state_dict.pop(key)
+            elif "layer" in split_keys[0]:
+                if split_keys[2] in new_key_dict2.keys():
+                    new_key = key.replace(split_keys[2], new_key_dict2[split_keys[2]])
+                    new_key_split = new_key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+                elif "downsample" in split_keys:
+                    new_key_split = key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+
+        model.load_state_dict(state_dict)
+
+    return model
+
+def resnet152(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+    r"""ResNet-152 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    model = ResNet("resnet152", Bottleneck, [3, 8, 36, 3], **kwargs)
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls['resnet152'],
+                                              progress=progress)
+        new_key_dict1={"conv1":"layer0.conv", "bn1": "layer0.bn"}
+        new_key_dict2={"conv1":"conv1.conv", "bn1": "conv1.bn","conv2":"conv2.conv", "bn2":"conv2.bn",
+                    "conv3":"conv3.conv", "bn3": "conv3.bn"}
+        for key in list(state_dict.keys()):
+            #print(key)
+            split_keys = key.split(".")
+            if split_keys[0] in new_key_dict1.keys():
+                new_key = new_key_dict1[split_keys[0]]+"."+key.split(".",1)[1]
+                state_dict[new_key] = state_dict.pop(key)
+            elif "layer" in split_keys[0]:
+                if split_keys[2] in new_key_dict2.keys():
+                    new_key = key.replace(split_keys[2], new_key_dict2[split_keys[2]])
+                    new_key_split = new_key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+                elif "downsample" in split_keys:
+                    new_key_split = key.split(".",1)
+                    new_key = new_key_split[0] + ".layers." + new_key_split[1]
+                    state_dict[new_key] = state_dict.pop(key)
+
+        model.load_state_dict(state_dict)
+
+    return model
+
 class ResNet_cifar10(nn.Module):
     def __init__(self, block, layers, nclass=10, zero_init_residual=False):
         super(ResNet_cifar10,self).__init__()
@@ -311,9 +388,9 @@ class ResNet_cifar10(nn.Module):
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = _make_layer(block,16,16,layers[0],stride=1, option='B')
-        self.layer2 = _make_layer(block,16,32,layers[1],stride=2, option='B')
-        self.layer3 = _make_layer(block,32,64,layers[2],stride=2, option='B')
+        self.layer1 = self._make_layer(block,16,layers[0],stride=1, option='B')
+        self.layer2 = self._make_layer(block,32,layers[1],stride=2, option='B')
+        self.layer3 = self._make_layer(block,64,layers[2],stride=2, option='B')
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(64* block.expansion, nclass)
